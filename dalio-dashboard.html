@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dalio Command Center</title>
+<style>
+:root{--bg0:#06080d;--bg1:#0c1119;--bg2:#131a2b;--bg3:#1a2440;--border:#253054;--t1:#e8ecf4;--t2:#9aa5bd;--t3:#5e6b85;--gold:#f0b90b;--red:#f6465d;--green:#0ecb81;--blue:#3b82f6;--purple:#8b5cf6;--cyan:#06b6d4;--orange:#fb923c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg0);color:var(--t1);overflow-x:hidden}
+
+/* NAV */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,8,13,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;gap:24px}
+.topbar h1{font-size:16px;font-weight:700;letter-spacing:1px;color:var(--gold);white-space:nowrap}
+.topbar h1 span{color:var(--t2);font-weight:400}
+.nav-tabs{display:flex;gap:4px;overflow-x:auto;flex:1}
+.nav-tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--t2);transition:all .2s;white-space:nowrap;border:1px solid transparent}
+.nav-tab:hover{background:var(--bg2);color:var(--t1)}
+.nav-tab.active{background:var(--bg3);color:var(--gold);border-color:var(--border)}
+.clock{font-size:12px;color:var(--t3);font-family:'SF Mono',monospace;white-space:nowrap}
+
+/* PANELS */
+.panel{display:none;padding:24px;max-width:1600px;margin:0 auto}
+.panel.active{display:block}
+
+/* GRID */
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-5{grid-template-columns:repeat(5,1fr)}
+@media(max-width:1200px){.grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;transition:all .25s}
+.card:hover{border-color:rgba(240,185,11,.25);background:var(--bg3)}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);margin-bottom:12px;font-weight:600}
+.card-value{font-size:32px;font-weight:700;line-height:1.1}
+.card-sub{font-size:12px;color:var(--t2);margin-top:6px}
+.card-delta{font-size:13px;font-weight:600;margin-top:4px}
+.card-delta.up{color:var(--green)}
+.card-delta.down{color:var(--red)}
+.card-delta.neutral{color:var(--t3)}
+
+/* SECTION HEADERS */
+.section-header{display:flex;align-items:center;gap:12px;margin:32px 0 16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.section-header:first-child{margin-top:0}
+.section-header h2{font-size:18px;font-weight:700;color:var(--t1)}
+.section-header .badge{font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.badge-red{background:rgba(246,70,93,.15);color:var(--red);border:1px solid rgba(246,70,93,.3)}
+.badge-gold{background:rgba(240,185,11,.12);color:var(--gold);border:1px solid rgba(240,185,11,.25)}
+.badge-green{background:rgba(14,203,129,.12);color:var(--green);border:1px solid rgba(14,203,129,.25)}
+.badge-blue{background:rgba(59,130,246,.12);color:var(--blue);border:1px solid rgba(59,130,246,.25)}
+
+/* THREAT METER */
+.threat-bar{height:32px;border-radius:8px;position:relative;overflow:hidden;background:var(--bg1);border:1px solid var(--border)}
+.threat-fill{height:100%;border-radius:7px;transition:width .8s ease}
+.threat-label{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.threat-gradient{background:linear-gradient(90deg,var(--green) 0%,var(--gold) 50%,var(--red) 100%)}
+
+/* FORCE CARDS */
+.force-card{display:flex;flex-direction:column;gap:10px}
+.force-level{display:flex;gap:3px;margin-top:4px}
+.force-dot{width:100%;height:8px;border-radius:4px;background:var(--bg1);border:1px solid var(--border)}
+.force-dot.filled-g{background:var(--green);border-color:var(--green)}
+.force-dot.filled-y{background:var(--gold);border-color:var(--gold)}
+.force-dot.filled-r{background:var(--red);border-color:var(--red)}
+
+/* TIMELINE */
+.timeline{position:relative;padding:20px 0 20px 32px}
+.timeline::before{content:'';position:absolute;left:12px;top:0;bottom:0;width:2px;background:linear-gradient(var(--green),var(--gold),var(--red))}
+.tl-item{position:relative;margin-bottom:24px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.tl-item::before{content:'';position:absolute;left:-26px;top:20px;width:12px;height:12px;border-radius:50%;border:2px solid var(--border);background:var(--bg1)}
+.tl-item.current::before{background:var(--gold);border-color:var(--gold);box-shadow:0 0 12px rgba(240,185,11,.5)}
+.tl-item.future::before{background:var(--bg1)}
+.tl-item.past::before{background:var(--t3)}
+.tl-date{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.tl-title{font-size:15px;font-weight:600;margin:4px 0}
+.tl-desc{font-size:13px;color:var(--t2);line-height:1.6}
+
+/* CHECKLIST */
+.check-group h3{font-size:14px;font-weight:700;color:var(--gold);margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border)}
+.check-group:first-child h3{border-top:none;padding-top:0}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;cursor:pointer;transition:opacity .2s}
+.check-item.done{opacity:.45;text-decoration:line-through}
+.check-box{width:20px;height:20px;border:2px solid var(--border);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:1px}
+.check-item.done .check-box{background:var(--green);border-color:var(--green)}
+.check-item.done .check-box::after{content:'\\2713';font-size:12px;color:var(--bg0);font-weight:700}
+.check-label{font-size:13px;color:var(--t2);line-height:1.4}
+.check-item.done .check-label{color:var(--t3)}
+.check-progress{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.check-progress-bar{flex:1;height:8px;background:var(--bg1);border-radius:4px;overflow:hidden}
+.check-progress-fill{height:100%;background:var(--green);border-radius:4px;transition:width .3s}
+.check-progress-text{font-size:12px;color:var(--t3);white-space:nowrap}
+
+/* PORTFOLIO CALC */
+.port-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(37,48,84,.5)}
+.port-label{width:160px;font-size:13px;color:var(--t2)}
+.port-input{flex:1;max-width:140px}
+.port-input input{width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:14px;font-family:inherit}
+.port-input input:focus{outline:none;border-color:var(--gold)}
+.port-target{width:80px;text-align:center;font-size:13px;color:var(--gold);font-weight:600}
+.port-bar-wrap{flex:1}
+.port-bar{height:24px;border-radius:6px;background:var(--bg1);overflow:hidden;position:relative}
+.port-bar-fill{height:100%;border-radius:5px;transition:width .5s}
+.port-bar-label{position:absolute;top:0;left:8px;height:100%;display:flex;align-items:center;font-size:11px;font-weight:600;color:var(--t1)}
+.port-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+
+/* TABLES */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);border-bottom:2px solid var(--border);font-weight:600}
+.data-table td{padding:10px 12px;border-bottom:1px solid rgba(37,48,84,.4);color:var(--t2)}
+.data-table tr:hover td{background:rgba(26,36,64,.5);color:var(--t1)}
+
+/* EVENTS LOG */
+.event-item{display:flex;gap:12px;padding:14px;margin-bottom:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;transition:all .2s}
+.event-item:hover{border-color:rgba(240,185,11,.25)}
+.event-force{writing-mode:vertical-rl;text-orientation:mixed;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:4px 2px;border-radius:4px;white-space:nowrap}
+.event-force.f1{color:var(--gold);background:rgba(240,185,11,.1)}
+.event-force.f2{color:var(--red);background:rgba(246,70,93,.1)}
+.event-force.f3{color:var(--blue);background:rgba(59,130,246,.1)}
+.event-force.f4{color:var(--cyan);background:rgba(6,182,212,.1)}
+.event-force.f5{color:var(--purple);background:rgba(139,92,246,.1)}
+.event-body{flex:1}
+.event-date{font-size:11px;color:var(--t3);margin-bottom:2px}
+.event-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.event-desc{font-size:12px;color:var(--t2);line-height:1.5}
+.event-source{font-size:11px;color:var(--blue);margin-top:4px}
+.event-source a{color:var(--blue);text-decoration:none}
+.event-source a:hover{text-decoration:underline}
+
+/* KNOWLEDGE BASE */
+.kb-section{margin-bottom:24px}
+.kb-section h3{font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.kb-content{font-size:13px;color:var(--t2);line-height:1.8}
+.kb-content strong{color:var(--t1)}
+.kb-content blockquote{border-left:3px solid var(--gold);padding:8px 16px;margin:12px 0;background:rgba(240,185,11,.04);border-radius:0 8px 8px 0;font-style:italic;color:var(--t1)}
+.kb-content ul{padding-left:20px;margin:8px 0}
+.kb-content li{margin:4px 0}
+.kb-content table{width:100%;border-collapse:collapse;margin:12px 0}
+.kb-content th,.kb-content td{text-align:left;padding:8px 12px;border:1px solid var(--border);font-size:12px}
+.kb-content th{background:var(--bg3);color:var(--gold);font-weight:600}
+
+/* FORM ELEMENTS */
+textarea{font-family:inherit}
+select{font-family:inherit;cursor:pointer}
+button{font-family:inherit;transition:all .2s}
+button:hover{opacity:.85;transform:translateY(-1px)}
+input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type="number"]{-moz-appearance:textfield}
+
+/* MOBILE NAV */
+@media(max-width:900px){
+  .topbar{flex-wrap:wrap;height:auto;padding:10px 16px;gap:8px}
+  .topbar h1{font-size:14px}
+  .nav-tabs{order:3;width:100%;padding-bottom:4px}
+  .nav-tab{padding:6px 10px;font-size:11px}
+  .panel{padding:14px}
+  .port-row{flex-wrap:wrap}
+  .port-label{width:100%}
+  .port-summary{grid-template-columns:1fr}
+  .card-value{font-size:24px}
+}
+
+/* PRINT STYLES */
+@media print{
+  .topbar,.nav-tabs{display:none!important}
+  .panel{display:block!important;padding:0}
+  body{background:#fff;color:#000}
+  .card{border:1px solid #ccc;background:#fff;break-inside:avoid}
+  .card-title{color:#666}
+  .card-value{color:#000}
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--t3)}
+
+/* PULSE */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.pulse{animation:pulse 2s infinite}
+
+/* TOOLTIP */
+.tip{position:relative;cursor:help;border-bottom:1px dotted var(--t3)}
+.tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg3);color:var(--t1);padding:6px 12px;border-radius:6px;font-size:11px;white-space:nowrap;border:1px solid var(--border);z-index:50}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>DALIO COMMAND CENTER <span>v4.0</span></h1>
+  <div class="nav-tabs" id="navTabs"></div>
+  <div class="clock" id="clock"></div>
+</div>
+
+<!-- APP CONTENT -->
+<div id="app"></div>
+
+<script>
+// ========================
+// STATE & DATA
+// ========================
+const STATE = {
+  tab: localStorage.getItem('dcc_tab') || 'overview',
+  checks: JSON.parse(localStorage.getItem('dcc_checks') || '{}'),
+  portfolio: JSON.parse(localStorage.getItem('dcc_portfolio') || '{}'),
+  journal: JSON.parse(localStorage.getItem('dcc_journal') || '[]'),
+  health: JSON.parse(localStorage.getItem('dcc_health') || '{}'),
+  scenario: localStorage.getItem('dcc_scenario') || 'baseline',
+  networth: JSON.parse(localStorage.getItem('dcc_networth') || '[]'),
+  bugout: JSON.parse(localStorage.getItem('dcc_bugout') || '{}'),
+  liveMarkets: null,
+  liveMarketsTime: null,
+};
+
+function saveChecks(){ localStorage.setItem('dcc_checks', JSON.stringify(STATE.checks)); }
+function savePortfolio(){ localStorage.setItem('dcc_portfolio', JSON.stringify(STATE.portfolio)); }
+function saveTab(){ localStorage.setItem('dcc_tab', STATE.tab); }
+function saveJournal(){ localStorage.setItem('dcc_journal', JSON.stringify(STATE.journal)); }
+function saveHealth(){ localStorage.setItem('dcc_health', JSON.stringify(STATE.health)); }
+function saveScenario(){ localStorage.setItem('dcc_scenario', STATE.scenario); }
+function saveNetworth(){ localStorage.setItem('dcc_networth', JSON.stringify(STATE.networth)); }
+function saveBugout(){ localStorage.setItem('dcc_bugout', JSON.stringify(STATE.bugout)); }
+
+// ========================
+// LIVE MARKET DATA FETCHER
+// ========================
+async function fetchLiveMarkets(){
+  // Only fetch once every 5 minutes
+  if(STATE.liveMarkets && STATE.liveMarketsTime && (Date.now()-STATE.liveMarketsTime)<300000) return;
+  try{
+    // BTC + Gold via CoinGecko free API
+    const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,tether-gold&vs_currencies=usd&include_24hr_change=true');
+    const cg = await cgRes.json();
+    if(cg.bitcoin){
+      const btcPrice = cg.bitcoin.usd;
+      const btcChg = cg.bitcoin.usd_24h_change;
+      MARKET_DATA.btc.val = '$'+Math.round(btcPrice).toLocaleString();
+      MARKET_DATA.btc.chg = (btcChg>=0?'+':'')+btcChg.toFixed(1)+'%';
+      MARKET_DATA.btc.dir = btcChg>=0?'up':'down';
+    }
+    STATE.liveMarkets = true;
+    STATE.liveMarketsTime = Date.now();
+    if(STATE.tab==='overview'||STATE.tab==='markets') render();
+  }catch(e){ /* silent fail — use static fallback */ }
+}
+fetchLiveMarkets();
+setInterval(fetchLiveMarkets, 300000);
+
+// TABS
+const TABS = [
+  {id:'overview', label:'Overview'},
+  {id:'threats', label:'Threat Assessment'},
+  {id:'markets', label:'Live Markets'},
+  {id:'scenarios', label:'Scenarios'},
+  {id:'debtclock', label:'Debt Clock'},
+  {id:'empires', label:'Empire Compare'},
+  {id:'timeline', label:'Big Cycle'},
+  {id:'portfolio', label:'Portfolio'},
+  {id:'health', label:'Financial Health'},
+  {id:'networth', label:'Net Worth'},
+  {id:'debasement', label:'Purchasing Power'},
+  {id:'prep', label:'Preparedness'},
+  {id:'bugout', label:'Bug-Out Plan'},
+  {id:'wwdd', label:'WWDD'},
+  {id:'journal', label:'Journal'},
+  {id:'events', label:'Event Tracker'},
+  {id:'media', label:'Media Library'},
+  {id:'knowledge', label:'Knowledge Base'},
+  {id:'backup', label:'Export/Import'},
+];
+
+// MARKET DATA (simulated with real recent values — would connect to live API)
+const MARKET_DATA = {
+  gold: {name:'Gold',val:'$2,935',chg:'+1.2%',dir:'up',note:'Near ATH. Central banks buying aggressively.'},
+  sp500: {name:'S&P 500',val:'5,983',chg:'-0.3%',dir:'down',note:'Dalio expected return: 4.7%/yr. Overvalued.'},
+  dxy: {name:'Dollar Index',val:'106.8',chg:'-0.5%',dir:'down',note:'Trending down. 58.5% reserve share.'},
+  us10y: {name:'10Y Treasury',val:'4.47%',chg:'+3bp',dir:'up',note:'Watch for sustained rise above 5%.'},
+  btc: {name:'Bitcoin',val:'$97,400',chg:'+2.1%',dir:'up',note:'Non-govt money. Dalio: small allocation.'},
+  vix: {name:'VIX',val:'15.2',chg:'-4.8%',dir:'down',note:'Low. Complacency risk per Dalio.'},
+};
+
+// FIVE FORCES
+const FORCES = [
+  {name:'Debt & Money',level:8,max:10,color:'gold',status:'CRITICAL',desc:'US deficit 7% of GDP. $1.1T interest. Phase 5 of 6. Funding gap $1.1T in FY27-28.',icon:'$'},
+  {name:'Internal Conflict',level:7,max:10,color:'red',status:'ELEVATED',desc:'Nat. Guard in 18+ cities. FBI warns violence "just started." Maplecroft: US #3 protest risk globally.',icon:'!'},
+  {name:'External Conflict',level:6,max:10,color:'blue',status:'HIGH',desc:'US-China tension managed but fragile. 43% experts: SCS escalation. Rules-based order "gone."',icon:'G'},
+  {name:'Acts of Nature',level:3,max:10,color:'cyan',status:'MODERATE',desc:'No major accelerant active. Climate events ongoing but not at crisis trigger level.',icon:'N'},
+  {name:'Technology / AI',level:5,max:10,color:'purple',status:'WILDCARD',desc:'Early bubble phase. Transformative but destabilizing. Could offset or accelerate decline.',icon:'A'},
+];
+
+// EVENTS
+const EVENTS = [
+  {date:'Feb 12, 2026',force:'f1',forceLabel:'DEBT',title:'Central Banks Breach 5,000-Tonne Gold Milestone',desc:'Global gold holdings hit record as BRICS dedollarization accelerates. Dollar reserve share at 58.5%.',src:'FinancialContent',url:'https://markets.financialcontent.com/stocks/article/marketminute-2026-2-12-the-golden-pivot-central-banks-breach-5000-tonne-milestone-as-brics-de-dollarization-accelerates'},
+  {date:'Feb 9, 2026',force:'f2',forceLabel:'INTERNAL',title:'States Rights and Civil Unrest Tensions Escalate',desc:'National Guard and ICE deployed in 18+ cities, mostly against governors\' wishes. Parallels to pre-Civil War states\' rights disputes.',src:'Times Gazette',url:'https://www.timesgazette.com/2026/02/09/states-rights-and-civil-unrest/'},
+  {date:'Feb 3, 2026',force:'f1',forceLabel:'DEBT',title:'Treasury Borrowing Advisory Committee Meets',desc:'$90.2B refunding. FY2026 slightly overfunded but $1.1T shortfall projected for FY2027-28. Coupon increases likely late 2026.',src:'US Treasury',url:'https://home.treasury.gov/news/press-releases/sb0386'},
+  {date:'Jan 21, 2026',force:'f3',forceLabel:'GEOPOL',title:'Dalio at Davos: Rules-Based Order is "Gone"',desc:'"Let\'s not be naive. It\'s gone." Multilateral system replaced by raw power politics and unilateralism.',src:'Fortune',url:'https://fortune.com/2026/01/21/ray-dalio-rule-based-global-order-is-gone-lets-not-be-naive/'},
+  {date:'Jan 2026',force:'f3',forceLabel:'GEOPOL',title:'CFR: Political Violence in US is Top-Tier Risk',desc:'Growing political violence and popular unrest in the US rated high-likelihood, high-impact for 2026. Six major power confrontation scenarios.',src:'CFR',url:'https://www.cfr.org/reports/conflicts-watch-2026'},
+  {date:'Jan 2026',force:'f2',forceLabel:'INTERNAL',title:'Former FBI Agent: Political Violence Has "Just Started"',desc:'Jonathan Gilliam warns 2026 outlook includes escalating political violence, citing assassination attempts and ICE confrontations.',src:'Fox News',url:'https://www.foxnews.com/us/political-violence-has-just-started-former-fbi-agent-warns-2026-outlook'},
+  {date:'Jan 2026',force:'f5',forceLabel:'TECH',title:'Dalio: AI in Early Bubble Phase',desc:'Mag 7 stocks expensive relative to DCF. AI is transformative but pricing ahead of fundamentals. Biggest productivity force since industrial revolution.',src:'KuCoin',url:'https://www.kucoin.com/news/flash/ray-dalio-2025-reflection-currency-purchasing-power-to-be-2026-s-top-political-issue-ai-in-early-bubble-phase'},
+  {date:'Dec 2025',force:'f1',forceLabel:'DEBT',title:'Dalio: Bipartisan Debt Deal Won\'t Happen',desc:'Solution requires cooperation that doesn\'t exist. Both parties unwilling to cut spending or raise taxes sufficiently.',src:'Fortune',url:'https://fortune.com/2025/12/05/ray-dalio-debt-crisis-bipartisan-agreement-outlook/'},
+  {date:'Sep 2025',force:'f2',forceLabel:'INTERNAL',title:'Dalio: "Very, Very Dark Times" Ahead',desc:'"A smart rabbit has three holes." Warns of great power conflict, inequality, and economic instability converging.',src:'Fortune',url:'https://fortune.com/2025/09/22/ray-dalio-warns-very-dark-times-economy-america-china-great-power-conflict-inequality/'},
+  {date:'Jul 2025',force:'f1',forceLabel:'DEBT',title:'Dalio: "Economic Heart Attack" Coming',desc:'Likened US debt trajectory to approaching cardiac event. Recommends 15% gold+BTC allocation. Warns bonds and currency not priced for risk.',src:'Yahoo Finance',url:'https://finance.yahoo.com/news/economic-heart-attack-ray-dalio-121500930.html'},
+  {date:'Jun 2025',force:'f1',forceLabel:'DEBT',title:'"How Countries Go Broke" Published',desc:'#1 NYT Bestseller. Details the Big Debt Cycle mechanism. Free chapters at economicprinciples.org.',src:'Simon & Schuster',url:'https://economicprinciples.org/how-countries-go-broke'},
+];
+
+// CHECKLIST DATA
+const CHECKLISTS = {
+  immediate: {
+    title: 'Immediate (This Month)',
+    items: [
+      'Read Dalio free chapters at economicprinciples.org',
+      'Audit current portfolio — calculate actual allocations',
+      'Begin shifting toward Dalio-aligned allocation (gold, intl, reduce long bonds)',
+      'Start 72-hour emergency food/water supply',
+      'Buy basic first aid kit + one CAT tourniquet',
+      'Identify your "three holes" (primary, domestic backup, international)',
+      'Sign up for Stop the Bleed course',
+    ]
+  },
+  short: {
+    title: 'Short-term (Next 3 Months)',
+    items: [
+      'Build to 30-day food supply',
+      'Open position in physical gold (coins or small bars)',
+      'Research and open foreign brokerage account',
+      'Build trauma/medical kit',
+      'Take Red Cross first aid/CPR class',
+      'Assess personal debt — create aggressive payoff plan',
+      'Build emergency cash fund (6 months minimum)',
+      'Learn one practical skill (repair, gardening, water purification)',
+    ]
+  },
+  medium: {
+    title: 'Medium-term (6-12 Months)',
+    items: [
+      'Build to 90+ day food supply with proper long-term storage',
+      'Reach 15% hard money allocation (gold + small BTC)',
+      'Diversify international equity exposure to 15-20%',
+      'Get HAM radio license',
+      'Start food garden (even container garden)',
+      'Build relationships with neighbors and community',
+      'Establish document backup (encrypted digital + physical fireproof)',
+      'Research second passport / residency options',
+    ]
+  },
+  ongoing: {
+    title: 'Ongoing',
+    items: [
+      'Monitor key indicators weekly (Treasury yields, gold, DXY, political)',
+      'Rotate food/medical supplies by expiration',
+      'Continue skill development',
+      'Stay informed — signal vs noise (avoid doom-scrolling)',
+      'Review and adjust portfolio quarterly',
+      'Update knowledge base with new developments',
+    ]
+  }
+};
+
+// PORTFOLIO TARGET (Dalio 2026 adjusted)
+const PORT_TARGETS = [
+  {id:'us_stocks',name:'US Stocks',target:27.5,color:'var(--blue)',note:'Cautious. Diversify away from Mag 7.'},
+  {id:'intl_stocks',name:'International Equities',target:17.5,color:'var(--cyan)',note:'Non-US outperformed in 2025.'},
+  {id:'gold',name:'Gold',target:12.5,color:'var(--gold)',note:'Dalio top call. 15% hard money total.'},
+  {id:'btc_crypto',name:'Bitcoin / Crypto',target:4,color:'var(--orange)',note:'Non-govt money. Small position.'},
+  {id:'short_bonds',name:'Short-term Bonds / Cash',target:12.5,color:'var(--t2)',note:'Dry powder. Liquidity.'},
+  {id:'long_bonds',name:'Long-term US Bonds',target:12.5,color:'var(--purple)',note:'Reduced. Debt crisis risk.'},
+  {id:'tips',name:'TIPS',target:5,color:'var(--green)',note:'Inflation protection.'},
+  {id:'commodities',name:'Commodities',target:8.5,color:'var(--red)',note:'Tariff disruption + inflation.'},
+];
+
+// ========================
+// RENDER ENGINE
+// ========================
+
+function render(){
+  renderNav();
+  const app = document.getElementById('app');
+  switch(STATE.tab){
+    case 'overview': app.innerHTML = renderOverview(); break;
+    case 'threats': app.innerHTML = renderThreats(); break;
+    case 'markets': app.innerHTML = renderMarkets(); break;
+    case 'scenarios': app.innerHTML = renderScenarios(); break;
+    case 'debtclock': app.innerHTML = renderDebtClock(); break;
+    case 'empires': app.innerHTML = renderEmpires(); break;
+    case 'timeline': app.innerHTML = renderTimeline(); break;
+    case 'portfolio': app.innerHTML = renderPortfolio(); break;
+    case 'health': app.innerHTML = renderHealth(); break;
+    case 'networth': app.innerHTML = renderNetWorth(); break;
+    case 'debasement': app.innerHTML = renderDebasement(); break;
+    case 'prep': app.innerHTML = renderPrep(); break;
+    case 'bugout': app.innerHTML = renderBugout(); break;
+    case 'wwdd': app.innerHTML = renderWWDD(); break;
+    case 'journal': app.innerHTML = renderJournal(); break;
+    case 'events': app.innerHTML = renderEvents(); break;
+    case 'media': app.innerHTML = renderMedia(); break;
+    case 'knowledge': app.innerHTML = renderKnowledge(); break;
+    case 'backup': app.innerHTML = renderBackup(); break;
+  }
+  attachListeners();
+}
+
+function renderNav(){
+  const tabs = document.getElementById('navTabs');
+  tabs.innerHTML = TABS.map(t =>
+    `<div class="nav-tab ${STATE.tab===t.id?'active':''}" data-tab="${t.id}">${t.label}</div>`
+  ).join('');
+  tabs.querySelectorAll('.nav-tab').forEach(el => {
+    el.onclick = () => { STATE.tab = el.dataset.tab; saveTab(); render(); };
+  });
+}
+
+// CLOCK
+setInterval(()=>{
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},1000);
+
+// ========================
+// OVERVIEW PANEL
+// ========================
+function renderOverview(){
+  const totalForce = FORCES.reduce((a,f)=>a+f.level,0);
+  const maxForce = FORCES.reduce((a,f)=>a+f.max,0);
+  const threatPct = Math.round((totalForce/maxForce)*100);
+  let threatLabel = 'MODERATE', threatColor = 'var(--gold)';
+  if(threatPct >= 70){ threatLabel = 'CRITICAL'; threatColor = 'var(--red)'; }
+  else if(threatPct >= 50){ threatLabel = 'ELEVATED'; threatColor = 'var(--orange)'; }
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Situation Overview</h2><span class="badge badge-red">LIVE</span></div>
+
+    <!-- COMPOSITE THREAT -->
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-title">Composite Threat Level — Dalio Five Forces</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px">
+        <span style="font-size:42px;font-weight:800;color:${threatColor}">${threatPct}%</span>
+        <span style="font-size:18px;font-weight:700;color:${threatColor};letter-spacing:2px">${threatLabel}</span>
+      </div>
+      <div class="threat-bar">
+        <div class="threat-fill threat-gradient" style="width:${threatPct}%"></div>
+        <div class="threat-label">${FORCES.map(f=>f.name+': '+f.level+'/'+f.max).join('  |  ')}</div>
+      </div>
+      <div class="card-sub" style="margin-top:10px">Based on Dalio's five forces framework. Late Stage 5 of the Big Cycle. Last comparable period: 1930s-1940s.</div>
+    </div>
+
+    <!-- MARKET TILES -->
+    <div class="grid grid-3" style="margin-bottom:24px">
+      ${Object.values(MARKET_DATA).map(m => `
+        <div class="card">
+          <div class="card-title">${m.name}</div>
+          <div class="card-value">${m.val}</div>
+          <div class="card-delta ${m.dir}">${m.chg}</div>
+          <div class="card-sub">${m.note}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- FIVE FORCES MINI -->
+    <div class="section-header"><h2>Five Forces Status</h2></div>
+    <div class="grid grid-5">
+      ${FORCES.map(f => {
+        const dots = Array.from({length:f.max},(_, i) => {
+          let cls = '';
+          if(i < f.level){
+            if(f.level >= 7) cls = 'filled-r';
+            else if(f.level >= 5) cls = 'filled-y';
+            else cls = 'filled-g';
+          }
+          return `<div class="force-dot ${cls}"></div>`;
+        }).join('');
+        return `<div class="card force-card">
+          <div class="card-title" style="color:var(--${f.color})">${f.icon} ${f.name}</div>
+          <div style="font-size:24px;font-weight:700">${f.level}/${f.max}</div>
+          <div class="force-level">${dots}</div>
+          <div class="card-sub">${f.desc}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- RECENT EVENTS -->
+    <div class="section-header" style="margin-top:32px"><h2>Latest Events</h2></div>
+    ${EVENTS.slice(0,4).map(renderEventItem).join('')}
+
+    <!-- DALIO QUOTE -->
+    <div class="card" style="margin-top:24px;border-left:3px solid var(--gold)">
+      <div class="card-title" style="color:var(--gold)">Dalio's Core Message</div>
+      <div style="font-size:20px;font-style:italic;line-height:1.6;color:var(--t1);margin:8px 0">"A smart rabbit has three holes."</div>
+      <div class="card-sub">Don't concentrate risk. Not one country. Not one currency. Not one asset class. Not one plan. — Ray Dalio, repeatedly throughout 2025-2026</div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// THREATS PANEL
+// ========================
+function renderThreats(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Dalio Five Forces — Threat Assessment</h2><span class="badge badge-red">DETAILED</span></div>
+    ${FORCES.map(f => {
+      const pct = (f.level/f.max)*100;
+      let barColor = 'var(--green)';
+      if(f.level >= 7) barColor = 'var(--red)';
+      else if(f.level >= 5) barColor = 'var(--gold)';
+      return `<div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <span style="font-size:16px;font-weight:700;color:var(--${f.color})">${f.name}</span>
+            <span class="badge badge-${f.level>=7?'red':f.level>=5?'gold':'green'}" style="margin-left:12px">${f.status}</span>
+          </div>
+          <span style="font-size:28px;font-weight:800;color:${barColor}">${f.level}/${f.max}</span>
+        </div>
+        <div class="threat-bar" style="margin-bottom:12px">
+          <div class="threat-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.7">${f.desc}</div>
+      </div>`;
+    }).join('')}
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Dalio's Historical Parallel</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        <strong>Current period most closely matches: 1930s-1940s</strong><br><br>
+        Among the 10 greatest powers at the start of the 20th century, <strong>7 experienced periods where virtually all wealth was wiped out at least once.</strong><br><br>
+        <strong>Who got destroyed:</strong> Holders of government bonds, salaried middle class, people with savings in local currency, those dependent on government services, those who assumed "it can't happen here."<br><br>
+        <strong>Who survived:</strong> Owners of productive real assets, holders of gold/hard money, internationally diversified, skilled tradespeople, community builders, early adapters.
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// MARKETS PANEL
+// ========================
+function renderMarkets(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Market Dashboard</h2><span class="badge badge-blue">Key Indicators</span></div>
+    <div class="grid grid-3">
+      ${Object.values(MARKET_DATA).map(m => `
+        <div class="card">
+          <div class="card-title">${m.name}</div>
+          <div class="card-value">${m.val}</div>
+          <div class="card-delta ${m.dir}">${m.chg}</div>
+          <div class="card-sub" style="margin-top:8px">${m.note}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header"><h2>Dalio's Key Metrics</h2></div>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Indicator</th><th>Value</th><th>Dalio Danger Zone</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Federal Deficit (% GDP)</td><td>~7%</td><td>&gt;3%</td><td style="color:var(--red);font-weight:600">CRITICAL — 2.3x threshold</td></tr>
+          <tr><td>Annual Interest Payments</td><td>&gt;$1.1T</td><td>Exceeds defense budget</td><td style="color:var(--red);font-weight:600">CRITICAL</td></tr>
+          <tr><td>Debt-to-GDP</td><td>~125%</td><td>&gt;100% (unsustainable)</td><td style="color:var(--red);font-weight:600">CRITICAL</td></tr>
+          <tr><td>S&P 500 Expected Return</td><td>4.7%/yr</td><td>Below bond yields = overvalued</td><td style="color:var(--gold);font-weight:600">WARNING</td></tr>
+          <tr><td>Dollar Reserve Share</td><td>58.5%</td><td>Was 71% in 1999</td><td style="color:var(--gold);font-weight:600">DECLINING</td></tr>
+          <tr><td>Gold vs S&P 500 (2025)</td><td>Gold +65%, SPX +18%</td><td>Gold outperformance = distrust</td><td style="color:var(--gold);font-weight:600">WARNING</td></tr>
+          <tr><td>FY27-28 Funding Gap</td><td>$1.1T projected</td><td>Will force larger auctions</td><td style="color:var(--red);font-weight:600">APPROACHING</td></tr>
+          <tr><td>BRICS Gold Reserves</td><td>5,000+ tonnes</td><td>Accelerating dedollarization</td><td style="color:var(--gold);font-weight:600">STRUCTURAL SHIFT</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px;border-left:3px solid var(--gold)">
+      <div class="card-title">Dalio's Doom Loop</div>
+      <div style="font-size:13px;color:var(--t2);line-height:2">
+        1. Government spends 40% more than it takes in<br>
+        2. Must issue more bonds to cover the gap<br>
+        3. Higher supply &rarr; higher interest rates demanded<br>
+        4. Higher rates &rarr; more interest payments &rarr; bigger deficit<br>
+        5. Central bank forced to buy bonds (print money)<br>
+        6. Printed money &rarr; currency devaluation &rarr; inflation<br>
+        7. Inflation &rarr; political anger &rarr; more spending<br>
+        8. <strong style="color:var(--red)">Loop accelerates until something breaks</strong>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// TIMELINE PANEL
+// ========================
+function renderTimeline(){
+  const phases = [
+    {date:'1944-1971',title:'Phase 1-2: Hard Money / Claims on Hard Money',desc:'Bretton Woods. Dollar backed by gold. Low debt. System stable.',status:'past'},
+    {date:'1971-2000',title:'Phase 3: Fiat Money',desc:'Nixon ends gold convertibility. Pure fiat system. Credit expansion begins in earnest.',status:'past'},
+    {date:'2000-2020',title:'Phase 4: Debt Expansion',desc:'Dot-com, 2008 crisis, QE1/2/3, zero interest rates. Debt balloons. Everything looks fine on the surface.',status:'past'},
+    {date:'2020-PRESENT',title:'Phase 5: Debt Crisis (WE ARE HERE)',desc:'COVID money printing was the accelerant. $1.1T in annual interest payments. Deficit 7% of GDP. Currency devaluation visible in gold prices. Internal conflict intensifying. Rules-based order collapsing.',status:'current'},
+    {date:'2027-2029',title:'Projected: Acute Stress Window',desc:'Dalio\'s window for potential debt crisis. $1.1T funding gap. Fed forced to choose: rate hikes (recession) or printing (inflation). Peak political instability. Possible 20-30% equity correction.',status:'future'},
+    {date:'2029-2032',title:'Phase 6: Deleveraging / New Order',desc:'Restructuring. Possible new monetary framework (new Bretton Woods?). AI productivity could ease transition. Survivors who maintained liquidity and hard assets become the new winners. Generational buying opportunities.',status:'future'},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>The Big Cycle — Where We Are</h2><span class="badge badge-gold">DALIO'S 75-100 YEAR CYCLE</span></div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div style="font-size:14px;color:var(--t2);line-height:1.8">
+        The Big Debt Cycle lasts roughly <strong>75-100 years</strong> — about one lifetime. That's why most people don't recognize it. The last full cycle ended with World War II and the Bretton Woods agreement in 1944. We are now approximately <strong>80 years into the current cycle</strong>, in what Dalio identifies as <strong style="color:var(--gold)">Phase 5 of 6</strong>.
+      </div>
+    </div>
+
+    <div class="timeline">
+      ${phases.map(p => `
+        <div class="tl-item ${p.status}">
+          <div class="tl-date">${p.date}</div>
+          <div class="tl-title">${p.title}</div>
+          <div class="tl-desc">${p.desc}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="grid grid-2" style="margin-top:16px">
+      <div class="card" style="border-left:3px solid var(--green)">
+        <div class="card-title" style="color:var(--green)">Optimistic Path (~30% odds per Dalio)</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8">
+          AI productivity explosion exceeds expectations. Bipartisan deficit deal. "Beautiful deleveraging." Managed transition. Inflation runs 4-6% for a decade. No acute crisis.
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--red)">
+        <div class="card-title" style="color:var(--red)">Pessimistic Path (More Likely per Dalio)</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8">
+          Political gridlock. Aggressive monetization. Currency devaluation. Internal conflict escalates. External shock compounds. Stagflation. Sovereign restructuring. Social upheaval. New world order.
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// PORTFOLIO PANEL
+// ========================
+function renderPortfolio(){
+  const total = PORT_TARGETS.reduce((s,p) => s + (parseFloat(STATE.portfolio[p.id]) || 0), 0);
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Portfolio Analyzer</h2><span class="badge badge-gold">DALIO-ALIGNED</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:16px">
+        Enter your current dollar amounts below. The dashboard compares your allocation to Dalio's 2026 recommended positioning and shows where to rebalance.
+      </div>
+
+      <div style="margin-bottom:8px">
+        ${PORT_TARGETS.map(p => {
+          const val = parseFloat(STATE.portfolio[p.id]) || 0;
+          const pct = total > 0 ? ((val/total)*100) : 0;
+          const diff = pct - p.target;
+          const diffColor = Math.abs(diff) < 3 ? 'var(--green)' : (diff > 0 ? 'var(--blue)' : 'var(--red)');
+          return `<div class="port-row">
+            <div class="port-label">${p.name}</div>
+            <div class="port-input"><input type="number" placeholder="$0" value="${val||''}" data-port-id="${p.id}"></div>
+            <div style="width:60px;text-align:right;font-size:14px;font-weight:600;color:var(--t1)">${pct.toFixed(1)}%</div>
+            <div class="port-target">T: ${p.target}%</div>
+            <div class="port-bar-wrap">
+              <div class="port-bar">
+                <div class="port-bar-fill" style="width:${Math.min(pct*2,100)}%;background:${p.color}"></div>
+              </div>
+            </div>
+            <div style="width:70px;text-align:right;font-size:12px;font-weight:600;color:${diffColor}">${diff>0?'+':''}${diff.toFixed(1)}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="port-summary">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Total Portfolio</div>
+        <div class="card-value" style="color:var(--gold)">$${total.toLocaleString()}</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Hard Money (Gold+BTC)</div>
+        <div class="card-value" style="color:${(()=>{const v=((parseFloat(STATE.portfolio.gold)||0)+(parseFloat(STATE.portfolio.btc_crypto)||0));const p=total>0?v/total*100:0;return p>=13?'var(--green)':'var(--red)';})()}">${total>0?(((parseFloat(STATE.portfolio.gold)||0)+(parseFloat(STATE.portfolio.btc_crypto)||0))/total*100).toFixed(1):'0'}%</div>
+        <div class="card-sub">Target: 16.5%</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">International Exposure</div>
+        <div class="card-value" style="color:${(()=>{const p=total>0?(parseFloat(STATE.portfolio.intl_stocks)||0)/total*100:0;return p>=14?'var(--green)':'var(--red)';})()}">${total>0?((parseFloat(STATE.portfolio.intl_stocks)||0)/total*100).toFixed(1):'0'}%</div>
+        <div class="card-sub">Target: 17.5%</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">ETF Reference Guide</div>
+      <table class="data-table">
+        <thead><tr><th>Exposure</th><th>Example Vehicles</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Gold</td><td>GLD, IAU, Physical Coins</td><td>Dalio's #1 call. 15% target.</td></tr>
+          <tr><td>Bitcoin</td><td>Direct BTC, IBIT, FBTC</td><td>Non-govt money. Small allocation.</td></tr>
+          <tr><td>US Broad Market</td><td>VTI, SPY</td><td>Reduced weight. Avoid Mag 7 concentration.</td></tr>
+          <tr><td>International Developed</td><td>VEA, VXUS, EFA</td><td>Outperformed US in 2025.</td></tr>
+          <tr><td>Emerging Markets</td><td>VWO, IEMG</td><td>BRICS+ economies growing.</td></tr>
+          <tr><td>Short-term Bonds</td><td>SHV, BIL, T-Bills</td><td>Liquidity. Dry powder.</td></tr>
+          <tr><td>TIPS</td><td>TIP, SCHP</td><td>Inflation protection.</td></tr>
+          <tr><td>Commodities</td><td>DJP, GSG, PDBC</td><td>Tariff disruption + inflation hedge.</td></tr>
+          <tr><td>Defense</td><td>ITA, LMT, RTX, NOC</td><td>Geopolitical tension theme.</td></tr>
+          <tr><td>Agriculture</td><td>DBA, MOO, WEAT</td><td>Essential, inflation-resistant.</td></tr>
+          <tr><td>Energy</td><td>XLE, URA</td><td>Supply chain premium.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ========================
+// PREPAREDNESS PANEL
+// ========================
+function renderPrep(){
+  const allItems = Object.entries(CHECKLISTS).flatMap(([k,v])=>v.items.map((_,i)=>k+'_'+i));
+  const doneCount = allItems.filter(k=>STATE.checks[k]).length;
+  const totalCount = allItems.length;
+  const pct = totalCount > 0 ? Math.round((doneCount/totalCount)*100) : 0;
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Preparedness Tracker</h2><span class="badge badge-green">INTERACTIVE</span></div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title">Overall Readiness</div>
+      <div class="check-progress">
+        <div class="check-progress-bar"><div class="check-progress-fill" style="width:${pct}%"></div></div>
+        <div class="check-progress-text">${doneCount}/${totalCount} (${pct}%)</div>
+      </div>
+      <div style="font-size:13px;color:var(--t2)">Check items as you complete them. Progress saves automatically in your browser.</div>
+    </div>
+
+    <div class="grid grid-2">
+      ${Object.entries(CHECKLISTS).map(([key, group]) => `
+        <div class="card">
+          <div class="check-group">
+            <h3>${group.title}</h3>
+            ${group.items.map((item, i) => {
+              const ck = key+'_'+i;
+              const done = STATE.checks[ck] ? 'done' : '';
+              return `<div class="check-item ${done}" data-check="${ck}">
+                <div class="check-box"></div>
+                <div class="check-label">${item}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- SURVIVAL REFERENCE CARDS -->
+    <div class="section-header" style="margin-top:32px"><h2>Survival Reference</h2></div>
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="card-title" style="color:var(--gold)">Food Storage Tiers</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.8">
+          <strong>72hr:</strong> Canned meat, PB, granola, fruit cups<br>
+          <strong>14-day:</strong> Rice, pasta, oats, canned soup/beans<br>
+          <strong>90+ day:</strong> Bulk rice + beans in Mylar (25-30yr shelf life), freeze-dried meals, powdered milk<br>
+          <strong>Water:</strong> 1-2 gal/person/day. Berkey filter. Purification tabs.<br>
+          <strong>Don't forget:</strong> Spices, coffee, hot sauce, vitamins
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--red)">Medical Kit Essentials</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.8">
+          <strong>Trauma:</strong> CAT Tourniquet Gen 7, QuikClot, chest seals, Israeli bandage<br>
+          <strong>Basic:</strong> Gauze, tape, bandages, antiseptic, gloves<br>
+          <strong>Meds:</strong> Ibuprofen, Benadryl, Imodium, antibiotics (topical), ORS packets<br>
+          <strong>Rx:</strong> 90-day supply of prescriptions<br>
+          <strong>Training:</strong> Stop the Bleed, Red Cross CPR, Wilderness First Aid
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--cyan)">Barter Goods (Historical)</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.8">
+          <strong>Tier 1 (universal):</strong> Alcohol, cigarettes, coffee, ammunition<br>
+          <strong>Tier 2 (high value):</strong> Antibiotics, batteries, lighters, fuel<br>
+          <strong>Tier 3 (essential):</strong> Salt, sugar, soap, seeds, spices<br><br>
+          <strong>From Bosnia:</strong> "The ability to fix things is more valuable than gold."<br>
+          <strong>From Argentina:</strong> Community barter networks formed within weeks.
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:16px">
+      <div class="card">
+        <div class="card-title" style="color:var(--purple)">High-Value Skills in Crisis</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.8">
+          Medical/First Aid &bull; Mechanical Repair &bull; Food Production/Gardening &bull; Water Purification &bull; Self-Defense &bull; HAM Radio Communication &bull; Negotiation/Trade &bull; Construction/Carpentry &bull; Electrical/Solar &bull; Cooking from Scratch
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--green)">Geographic Optionality ("Three Holes")</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.8">
+          <strong>Hole 1:</strong> Primary home, fully prepared, strong community<br>
+          <strong>Hole 2:</strong> Domestic backup — rural, different state, water/farmland access<br>
+          <strong>Hole 3:</strong> International — second passport/residency, foreign bank, foreign assets<br><br>
+          <strong>Docs:</strong> Encrypted digital + fireproof physical copies of everything critical.
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// EVENTS PANEL
+// ========================
+function renderEventItem(e){
+  return `<div class="event-item">
+    <div class="event-force ${e.force}">${e.forceLabel}</div>
+    <div class="event-body">
+      <div class="event-date">${e.date}</div>
+      <div class="event-title">${e.title}</div>
+      <div class="event-desc">${e.desc}</div>
+      <div class="event-source"><a href="${e.url}" target="_blank">${e.src} &rarr;</a></div>
+    </div>
+  </div>`;
+}
+
+function renderEvents(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Event Tracker — Mapped to Dalio's Five Forces</h2></div>
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+      <span class="badge badge-gold">DEBT & MONEY</span>
+      <span class="badge badge-red">INTERNAL CONFLICT</span>
+      <span class="badge badge-blue">GEOPOLITICS</span>
+      <span style="font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:1px;background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.25)">NATURE</span>
+      <span style="font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:1px;background:rgba(139,92,246,.12);color:var(--purple);border:1px solid rgba(139,92,246,.25)">TECH / AI</span>
+    </div>
+    ${EVENTS.map(renderEventItem).join('')}
+  </div>`;
+}
+
+// ========================
+// KNOWLEDGE BASE PANEL
+// ========================
+function renderKnowledge(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Knowledge Base</h2><span class="badge badge-gold">DALIO REFERENCE</span></div>
+
+    <div class="grid grid-2">
+      <div class="card kb-section">
+        <h3 style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px">The Economic Machine (3 Forces)</h3>
+        <div class="kb-content">
+          <strong>1. Productivity Growth</strong> — ~2% annually. The real driver of living standards.<br><br>
+          <strong>2. Short-term Debt Cycle</strong> — 5-8 year expansions/recessions. Credit creation + central bank tightening.<br><br>
+          <strong>3. Long-term Debt Cycle</strong> — 75-100 year supercycles. We are at the END of one.
+          <blockquote>"Reality is a machine. Understand the cause-effect relationships, and you can navigate anything." — Dalio</blockquote>
+        </div>
+      </div>
+
+      <div class="card kb-section">
+        <h3 style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px">How Countries Go Broke — The Key Equation</h3>
+        <div class="kb-content">
+          <blockquote>"It's all about income in relation to debt. Not absolute debt levels, but the GROWTH RATE of debt vs. the GROWTH RATE of income."</blockquote>
+          <strong>"Beautiful Deleveraging" — Best Case:</strong>
+          <ul>
+            <li>Debt restructuring/defaults (deflationary)</li>
+            <li>Money printing (inflationary)</li>
+            <li>Wealth transfers (taxes on wealthy)</li>
+            <li>Productivity gains (austerity + innovation)</li>
+          </ul>
+          <strong style="color:var(--red)">Dalio does NOT think the US political system can execute this.</strong>
+        </div>
+      </div>
+
+      <div class="card kb-section">
+        <h3 style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px">The Big Cycle — Rise & Fall of Empires</h3>
+        <div class="kb-content">
+          Every ~250 years, a dominant world power follows this arc:
+          <ul>
+            <li><strong>New Order</strong> — stability, rules, reserve currency</li>
+            <li><strong>Peace & Prosperity</strong> — low debt, high productivity</li>
+            <li><strong>Debt & Overextension</strong> — spending exceeds income</li>
+            <li><strong>Printing Money</strong> — currency weakens</li>
+            <li><strong>Internal Conflict</strong> — polarization, populism</li>
+            <li><strong>External Conflict</strong> — rising power challenges</li>
+            <li><strong>Revolution / Restructuring</strong> — new order begins</li>
+          </ul>
+          <strong>The US is in Late Stage 5 / Early Stage 6.</strong>
+        </div>
+      </div>
+
+      <div class="card kb-section">
+        <h3 style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px">Historical Survivors — Lessons</h3>
+        <div class="kb-content">
+          <strong>Argentina 2001:</strong> Bank accounts frozen. Barter networks formed within weeks. Community self-organization was key. Hard currency holders rebuilt fastest.<br><br>
+          <strong>Weimar Germany 1923:</strong> Cash/savings wiped out. Farmers and hard asset owners thrived. Foreign currency preserved purchasing power. Alternative currencies emerged.<br><br>
+          <strong>Bosnia 1992-96:</strong> 1,425 days under siege. "My knowledge was my wealth." Practical skills outvalued everything. Community solidarity was the #1 survival factor.<br><br>
+          <blockquote>"Argentines are used to a more unstable form of capitalism. As a result, they are more creative in their responses." — Marcela Lopez Levy</blockquote>
+        </div>
+      </div>
+
+      <div class="card kb-section">
+        <h3 style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px">Dalio's Portfolio Principles</h3>
+        <div class="kb-content">
+          <strong>The Holy Grail:</strong> "Find 10-15 good, uncorrelated return streams."<br><br>
+          <strong>2026 Shifts:</strong>
+          <ul>
+            <li>Gold: 7.5% &rarr; 15% ("second-largest reserve currency")</li>
+            <li>Bitcoin: 0% &rarr; small allocation (non-govt money)</li>
+            <li>US Bonds: REDUCE long-term exposure</li>
+            <li>Non-US Equities: INCREASE (outperformed 2025)</li>
+            <li>Cash: MAINTAIN for crash buying opportunities</li>
+          </ul>
+          <blockquote>"I expect non-government-produced monies like gold and bitcoin to do relatively well." — Dalio, 2025</blockquote>
+        </div>
+      </div>
+
+      <div class="card kb-section">
+        <h3 style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:12px">Key Sources</h3>
+        <div class="kb-content">
+          <strong>Books:</strong>
+          <ul>
+            <li><em>Principles for Dealing with the Changing World Order</em> (2021)</li>
+            <li><em>How Countries Go Broke: The Big Cycle</em> (2025)</li>
+            <li><em>Principles</em> (2017)</li>
+            <li><em>The Modern Survival Manual</em> — FerFAL (Argentina)</li>
+            <li><em>When Money Dies</em> — Adam Fergusson (Weimar)</li>
+          </ul>
+          <strong>Free Resources:</strong>
+          <ul>
+            <li><a href="https://economicprinciples.org/how-countries-go-broke" target="_blank" style="color:var(--blue)">economicprinciples.org — Free chapters</a></li>
+            <li><a href="https://www.youtube.com/watch?v=xguam0TKMw8" target="_blank" style="color:var(--blue)">Changing World Order — 40min animated video</a></li>
+            <li><a href="https://www.youtube.com/watch?v=PHe0bXAIuk0" target="_blank" style="color:var(--blue)">How the Economic Machine Works — 30min video</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// SCENARIO SIMULATOR
+// ========================
+const SCENARIOS = {
+  baseline: {
+    name:'Baseline (Muddle Through)',prob:'~40%',color:'var(--gold)',
+    desc:'Slow grind. Inflation 3-5%. No acute crisis. Debt grows but manageable short-term. Political tension persists but doesn\'t boil over. Fed cuts modestly.',
+    assets:{us_stocks:'+5-8%',intl_stocks:'+8-12%',gold:'+10-15%',btc:'+15-25%',long_bonds:'+2-4%',short_bonds:'+4-5%',tips:'+4-6%',commodities:'+5-10%',cash:'+4.5%',real_estate:'+3-5%'},
+    actions:['Maintain diversified Dalio allocation','Slowly increase gold and international','Keep dry powder for volatility spikes','Monitor Treasury auctions closely']
+  },
+  debt_crisis: {
+    name:'Debt Crisis / Bond Market Revolt',prob:'~25%',color:'var(--red)',
+    desc:'Treasury auction fails or tails badly. 10Y yield spikes above 6%. Fed forced into emergency QE. Dollar drops 15-20%. Credit markets freeze. Recession follows.',
+    assets:{us_stocks:'-25-40%',intl_stocks:'-10-20%',gold:'+30-60%',btc:'+40-80%',long_bonds:'-20-35%',short_bonds:'+2-3%',tips:'+5-10%',commodities:'+15-30%',cash:'+4% (but losing real value)',real_estate:'-15-25%'},
+    actions:['MAXIMUM gold/hard money allocation','Exit long-duration bonds immediately','Hold cash for distressed asset buying','Expect capital controls — have assets outside US','Stock up on physical supplies']
+  },
+  stagflation: {
+    name:'Stagflation Spiral',prob:'~20%',color:'var(--orange)',
+    desc:'Tariffs + money printing = persistent 5-8% inflation with GDP contraction. Fed trapped — can\'t raise rates (recession) or cut (inflation). The 1970s redux. Worst environment for traditional portfolios.',
+    assets:{us_stocks:'-10-20%',intl_stocks:'-5-15%',gold:'+25-45%',btc:'+20-40%',long_bonds:'-15-25%',short_bonds:'+3-5%',tips:'+8-15%',commodities:'+20-40%',cash:'Losing 5-8% real/yr',real_estate:'-5-10% (but rents rise)'},
+    actions:['Overweight commodities, gold, TIPS','Underweight all fixed-rate bonds','Energy and agriculture stocks benefit','Reduce cash — it\'s being devalued','Shorten duration on everything','Real assets with pricing power']
+  },
+  taiwan_crisis: {
+    name:'Taiwan / Geopolitical Shock',prob:'~10%',color:'var(--blue)',
+    desc:'China blockades or invades Taiwan. Semiconductor supply cut. US-China economic decoupling accelerates. Energy prices spike. Global recession triggered by supply chain collapse.',
+    assets:{us_stocks:'-30-50%',intl_stocks:'-25-45%',gold:'+40-80%',btc:'+0-30% (volatile)',long_bonds:'+5-15% (flight to safety initially)',short_bonds:'+4-5%',tips:'+5-10%',commodities:'+30-60%',cash:'Flight to dollar initially, then devaluation',real_estate:'-20-30%'},
+    actions:['Defense stocks surge (LMT, RTX, NOC)','Semiconductor shortage = MASSIVE tech disruption','Energy independence plays (XLE, URA)','Gold is the ultimate safe haven','Food supply disruptions — physical preps critical','Expect martial law / emergency powers discussion']
+  },
+  ai_boom: {
+    name:'AI Productivity Miracle',prob:'~15%',color:'var(--green)',
+    desc:'AI drives 4-6% productivity growth. Tax revenues surge. Deficit shrinks without austerity. Soft landing achieved. New tech cycle drives investment boom. "Beautiful deleveraging" becomes possible.',
+    assets:{us_stocks:'+15-30%',intl_stocks:'+10-20%',gold:'+0-5%',btc:'+30-60%',long_bonds:'+5-10%',short_bonds:'+4-5%',tips:'+3-5%',commodities:'+5-10%',cash:'+4-5%',real_estate:'+10-20%'},
+    actions:['Increase equity exposure — especially AI infrastructure','Semiconductors, cloud, data centers benefit most','Can reduce defensive allocation modestly','Still maintain 5-10% gold (insurance)','Debt concerns ease but don\'t disappear','Watch for bubble formation in AI assets']
+  }
+};
+
+function renderScenarios(){
+  const sc = SCENARIOS[STATE.scenario] || SCENARIOS.baseline;
+  return `<div class="panel active">
+    <div class="section-header"><h2>Scenario Simulator</h2><span class="badge badge-gold">THINK IN PROBABILITIES</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio thinks in probabilities, not predictions. Select a scenario to see projected asset performance and recommended actions. Your portfolio should be positioned to survive ALL scenarios, not bet on one.</div>
+    </div>
+    <div class="grid grid-5" style="margin-bottom:24px">
+      ${Object.entries(SCENARIOS).map(([k,v])=>`
+        <div class="card" style="cursor:pointer;text-align:center;${STATE.scenario===k?'border-color:'+v.color+';box-shadow:0 0 20px '+v.color+'33':''}" data-scenario="${k}">
+          <div style="font-size:13px;font-weight:700;color:${v.color}">${v.name}</div>
+          <div style="font-size:24px;font-weight:800;color:${v.color};margin:6px 0">${v.prob}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="card" style="border-left:3px solid ${sc.color};margin-bottom:16px">
+      <div style="font-size:18px;font-weight:700;color:${sc.color};margin-bottom:8px">${sc.name}</div>
+      <div style="font-size:14px;color:var(--t2);line-height:1.8">${sc.desc}</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">Projected Asset Performance</div>
+        <table class="data-table">
+          <thead><tr><th>Asset</th><th>Expected Return</th></tr></thead>
+          <tbody>${Object.entries(sc.assets).map(([k,v])=>{
+            const isPos=v.startsWith('+');
+            return `<tr><td>${k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</td><td style="color:${isPos?'var(--green)':v.startsWith('-')?'var(--red)':'var(--t2)'};font-weight:600">${v}</td></tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Recommended Actions</div>
+        <div style="font-size:13px;color:var(--t2);line-height:2">
+          ${sc.actions.map((a,i)=>`<div>${i+1}. ${a}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// FINANCIAL HEALTH SCORER
+// ========================
+function renderHealth(){
+  const h = STATE.health;
+  const income = parseFloat(h.monthly_income)||0;
+  const expenses = parseFloat(h.monthly_expenses)||0;
+  const totalDebt = parseFloat(h.total_debt)||0;
+  const liquidSavings = parseFloat(h.liquid_savings)||0;
+  const annualIncome = income*12;
+
+  const dti = annualIncome>0 ? ((totalDebt/annualIncome)*100) : 0;
+  const savingsMonths = expenses>0 ? (liquidSavings/expenses) : 0;
+  const savingsRate = income>0 ? (((income-expenses)/income)*100) : 0;
+
+  // Score calculation (0-100)
+  let score = 50;
+  // DTI: <100% good, <200% ok, >300% bad
+  if(dti < 100) score += 15; else if(dti < 200) score += 5; else if(dti > 300) score -= 15; else score -= 5;
+  // Savings months: 12+ great, 6+ good, 3+ ok, <3 bad
+  if(savingsMonths >= 12) score += 20; else if(savingsMonths >= 6) score += 10; else if(savingsMonths >= 3) score += 0; else score -= 15;
+  // Savings rate: >30% great, >15% good, >0 ok, negative bad
+  if(savingsRate > 30) score += 15; else if(savingsRate > 15) score += 8; else if(savingsRate > 0) score += 0; else score -= 10;
+  score = Math.max(0, Math.min(100, score));
+
+  let grade='F',gradeColor='var(--red)';
+  if(score>=85){grade='A';gradeColor='var(--green)';}
+  else if(score>=70){grade='B';gradeColor='var(--cyan)';}
+  else if(score>=55){grade='C';gradeColor='var(--gold)';}
+  else if(score>=40){grade='D';gradeColor='var(--orange)';}
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Financial Health Scorer</h2><span class="badge badge-blue">DALIO PRINCIPLES</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio says: "It's all about income in relation to debt." Enter your numbers below. Everything stays in your browser — nothing is sent anywhere.</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">Your Numbers</div>
+        <div class="port-row"><div class="port-label">Monthly Income (after tax)</div><div class="port-input"><input type="number" placeholder="$0" value="${h.monthly_income||''}" data-health="monthly_income"></div></div>
+        <div class="port-row"><div class="port-label">Monthly Expenses</div><div class="port-input"><input type="number" placeholder="$0" value="${h.monthly_expenses||''}" data-health="monthly_expenses"></div></div>
+        <div class="port-row"><div class="port-label">Total Debt (all)</div><div class="port-input"><input type="number" placeholder="$0" value="${h.total_debt||''}" data-health="total_debt"></div></div>
+        <div class="port-row"><div class="port-label">Liquid Savings / Cash</div><div class="port-input"><input type="number" placeholder="$0" value="${h.liquid_savings||''}" data-health="liquid_savings"></div></div>
+      </div>
+      <div class="card" style="text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div class="card-title">Dalio Resilience Score</div>
+        <div style="font-size:72px;font-weight:800;color:${gradeColor}">${grade}</div>
+        <div style="font-size:24px;color:var(--t2)">${score}/100</div>
+        <div class="threat-bar" style="margin-top:16px;width:100%">
+          <div class="threat-fill" style="width:${score}%;background:${gradeColor}"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-4" style="margin-top:16px">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Debt-to-Income</div>
+        <div class="card-value" style="color:${dti<100?'var(--green)':dti<200?'var(--gold)':'var(--red)'}">${dti.toFixed(0)}%</div>
+        <div class="card-sub">${dti<100?'Healthy':''}${dti>=100&&dti<200?'Watch it':''}${dti>=200?'Dalio danger zone':''}</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Emergency Runway</div>
+        <div class="card-value" style="color:${savingsMonths>=6?'var(--green)':savingsMonths>=3?'var(--gold)':'var(--red)'}">${savingsMonths.toFixed(1)}</div>
+        <div class="card-sub">months of expenses covered</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Savings Rate</div>
+        <div class="card-value" style="color:${savingsRate>15?'var(--green)':savingsRate>0?'var(--gold)':'var(--red)'}">${savingsRate.toFixed(0)}%</div>
+        <div class="card-sub">${savingsRate>30?'Excellent':''}${savingsRate>15&&savingsRate<=30?'Good':''}${savingsRate>0&&savingsRate<=15?'Needs work':''}${savingsRate<=0?'Spending > income!':''}</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Monthly Surplus</div>
+        <div class="card-value" style="color:${income-expenses>0?'var(--green)':'var(--red)'}">$${Math.abs(income-expenses).toLocaleString()}</div>
+        <div class="card-sub">${income-expenses>=0?'Available to invest/save':'Monthly shortfall'}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;border-left:3px solid ${gradeColor}">
+      <div class="card-title">Dalio's Prescription</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        ${score>=85?'<strong style="color:var(--green)">Strong position.</strong> Focus on optimizing portfolio allocation, building international optionality, and maintaining your edge. You have the runway to be opportunistic during market stress.':''}
+        ${score>=70&&score<85?'<strong style="color:var(--cyan)">Decent foundation.</strong> Priority: extend emergency runway to 12 months and eliminate high-interest debt. You\'re close — focus on the margin between where you are and full resilience.':''}
+        ${score>=55&&score<70?'<strong style="color:var(--gold)">Work to do.</strong> Dalio would say your debt-to-income trajectory is the first thing to fix. Cut expenses aggressively, build liquid reserves, delay investment allocation until you have 6-month runway.':''}
+        ${score>=40&&score<55?'<strong style="color:var(--orange)">Vulnerable.</strong> In a Dalio Phase 5 environment, this is a dangerous position. Prioritize: (1) eliminate unnecessary expenses, (2) build 3-month cash buffer, (3) pay down highest-interest debt, (4) then invest.':''}
+        ${score<40?'<strong style="color:var(--red)">Emergency mode.</strong> Dalio\'s framework says people in this position are the first casualties of any crisis. Immediate action: slash expenses to survival level, stop all non-essential spending, consolidate/negotiate debt, build ANY cash buffer. Every dollar of surplus goes to safety margin.':''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// PURCHASING POWER / DEBASEMENT CALCULATOR
+// ========================
+function renderDebasement(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Purchasing Power Calculator</h2><span class="badge badge-red">CURRENCY DEBASEMENT</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio identified currency purchasing power as the <strong>#1 political issue for 2026</strong>. This calculator shows what inflation does to your money over time. The numbers are stark — this is what Dalio means by "stealth default."</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">What $100,000 Becomes (Real Purchasing Power)</div>
+      <table class="data-table">
+        <thead><tr><th>Inflation Rate</th><th>1 Year</th><th>3 Years</th><th>5 Years</th><th>10 Years</th><th>20 Years</th></tr></thead>
+        <tbody>
+          ${[
+            {rate:'3% (Fed target)',r:0.03,color:'var(--green)'},
+            {rate:'5% (current trend)',r:0.05,color:'var(--gold)'},
+            {rate:'7% (stagflation)',r:0.07,color:'var(--orange)'},
+            {rate:'10% (crisis)',r:0.10,color:'var(--red)'},
+            {rate:'15% (severe)',r:0.15,color:'var(--red)'},
+            {rate:'25% (Argentina-level)',r:0.25,color:'var(--red)'},
+          ].map(i=>{
+            const calc = y => Math.round(100000/Math.pow(1+i.r,y)).toLocaleString();
+            return `<tr>
+              <td style="color:${i.color};font-weight:600">${i.rate}</td>
+              <td>$${calc(1)}</td><td>$${calc(3)}</td><td>$${calc(5)}</td><td>$${calc(10)}</td><td>$${calc(20)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title" style="color:var(--gold)">What Gold Has Done</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8">
+          <strong>2020:</strong> ~$1,750/oz<br>
+          <strong>2025:</strong> ~$2,900/oz (+66%)<br>
+          <strong>Real story:</strong> Gold didn't "go up" — the dollar went DOWN. Gold is the mirror that shows currency debasement in real time.<br><br>
+          <strong>In 2025:</strong> Gold returned +65% vs S&P +18%. That 47-point gap is the market pricing in exactly what Dalio is warning about.<br><br>
+          <strong>Dalio:</strong> "Gold is a currency — the second-largest reserve currency in the world."
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--red)">The Stealth Default</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8">
+          <strong>From "How Countries Go Broke":</strong><br><br>
+          Governments don't need to formally default. They can preserve the <strong>nominal</strong> value of your bonds and savings while wiping out the <strong>real</strong> value through inflation.<br><br>
+          At 7% inflation (current deficit-implied rate), your purchasing power halves in ~10 years. Your bank account says $100,000. It buys $50,000 worth of goods.<br><br>
+          <strong>This is how every empire has "paid" its debts.</strong> Not by defaulting. By devaluing. The middle class pays through lost purchasing power. Every time.
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Historical Currency Devaluations (Dalio's Data)</div>
+      <table class="data-table">
+        <thead><tr><th>Currency</th><th>Period</th><th>Total Devaluation</th><th>What Happened</th></tr></thead>
+        <tbody>
+          <tr><td>German Mark</td><td>1921-1923</td><td style="color:var(--red);font-weight:700">-99.99999%</td><td>Hyperinflation. Wheelbarrows of cash for bread.</td></tr>
+          <tr><td>Argentine Peso</td><td>1999-2002</td><td style="color:var(--red);font-weight:700">-75%</td><td>Default + devaluation. Bank accounts frozen.</td></tr>
+          <tr><td>British Pound</td><td>1945-1975</td><td style="color:var(--orange);font-weight:700">-80%</td><td>Post-empire decline. Managed over decades.</td></tr>
+          <tr><td>US Dollar</td><td>1971-2026</td><td style="color:var(--orange);font-weight:700">-87%</td><td>Since Nixon ended gold standard. Accelerating.</td></tr>
+          <tr><td>Japanese Yen</td><td>2020-2026</td><td style="color:var(--gold);font-weight:700">-35%</td><td>BOJ yield curve control + debt monetization.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ========================
+// WHAT WOULD DALIO DO (WWDD)
+// ========================
+function renderWWDD(){
+  const situations = [
+    {trigger:'Market crashes 20-30%',icon:'S',color:'var(--red)',
+      response:'DON\'T panic sell. This is what your cash/liquidity buffer is for. Dalio: "The biggest mistake investors make is selling at the bottom." If your portfolio is properly diversified (All Weather), the damage is limited. Use dry powder to buy quality assets at discount. Gold likely rising simultaneously — it\'s doing its job. Check: is this a liquidity crisis or a solvency crisis? Liquidity = temporary, buy the dip. Solvency = structural, be more cautious.',
+      action:'Deploy 20-30% of cash reserves into beaten-down quality assets. Rebalance, don\'t flee.'},
+    {trigger:'Inflation spikes above 6%',icon:'I',color:'var(--orange)',
+      response:'Dalio: "Monetary inflation is one of the main ways governments effectively default." Shift to: TIPS, commodities, gold, short-duration bonds. EXIT long-duration fixed-rate bonds — they\'re being destroyed. Real assets (real estate with pricing power, farmland) hold value. Equities CAN work if companies have pricing power. Avoid: cash (it\'s melting), long bonds, fixed-income annuities.',
+      action:'Overweight TIPS, commodities, gold. Underweight cash and long bonds. Shorten portfolio duration.'},
+    {trigger:'Bank accounts frozen / Capital controls',icon:'B',color:'var(--red)',
+      response:'This happened in Argentina (2001), Cyprus (2013), Greece (2015), and Lebanon (2019). Dalio warns about this explicitly. If you don\'t have assets OUTSIDE the banking system and outside the country, you\'re trapped. Physical gold, bitcoin (self-custody), foreign accounts, and cash on hand are your lifelines. The "three holes" principle is exactly for this moment.',
+      action:'This is why you prepare BEFORE the crisis. Physical gold, self-custody BTC, foreign brokerage, cash reserve at home.'},
+    {trigger:'Political violence / Civil unrest in your area',icon:'V',color:'var(--red)',
+      response:'From Bosnian survivors: "Stay safe, stay quiet, stay together." Avoid being a target. Don\'t engage in conflict. Your emergency supplies, medical kit, and community network activate now. Communication plan that doesn\'t rely on cell towers (HAM radio). Know your exits. If your area is unsafe, relocate to "Hole 2" — your domestic backup location. Prioritize: water, food, medical, security, communication.',
+      action:'Activate emergency plan. Stay informed via radio. Rely on community network. Relocate if necessary.'},
+    {trigger:'US dollar loses reserve status rapidly',icon:'$',color:'var(--gold)',
+      response:'Dalio: this is the endgame of the Big Debt Cycle. Dollar share already down from 71% to 58.5%. If it accelerates: imported goods prices spike, interest rates surge, and the Fed faces impossible choices. Gold and bitcoin are the primary hedges. Foreign-denominated assets preserve purchasing power. The transition historically takes 10-20 years but can have acute episodes. This is what BRICS and central bank gold buying is front-running.',
+      action:'Maximum hard money allocation. Foreign assets critical. Reduce dollar-denominated fixed income. Real assets over paper.'},
+    {trigger:'AI boom makes everything better',icon:'A',color:'var(--green)',
+      response:'Dalio gives this ~30% odds — it\'s the optimistic path. AI-driven productivity could generate enough growth and tax revenue to shrink the debt problem. If this happens: equities rally (especially AI infrastructure), bonds stabilize, gold flattens. BUT: don\'t abandon your hedges entirely. Even in the best case, the political and geopolitical tensions don\'t disappear. Maintain 5-10% gold as insurance. Participate in the upside via quality tech/AI positions.',
+      action:'Increase equity exposure cautiously. Maintain 5-10% gold insurance. Focus on AI infrastructure picks-and-shovels.'},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>What Would Dalio Do?</h2><span class="badge badge-gold">DECISION FRAMEWORK</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio's principle: <strong>"Pain + Reflection = Progress."</strong> When a crisis hits, don't react emotionally. Run the situation through the framework. Every scenario below is drawn from Dalio's writings, historical precedent, and the current macro environment.</div>
+    </div>
+    ${situations.map(s => `
+      <div class="card" style="margin-bottom:12px;border-left:3px solid ${s.color}">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:36px;height:36px;border-radius:8px;background:${s.color}22;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${s.color}">${s.icon}</div>
+          <div style="font-size:16px;font-weight:700;color:${s.color}">IF: ${s.trigger}</div>
+        </div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8;margin-bottom:12px">${s.response}</div>
+        <div style="padding:10px 14px;background:var(--bg1);border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Action</div>
+          <div style="font-size:13px;color:var(--t1);font-weight:500">${s.action}</div>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+// ========================
+// DECISION JOURNAL
+// ========================
+function renderJournal(){
+  const entries = STATE.journal || [];
+  return `<div class="panel active">
+    <div class="section-header"><h2>Decision Journal</h2><span class="badge badge-blue">DALIO PRINCIPLE: RECORD YOUR THINKING</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio insists on writing down your reasoning BEFORE you act, so you can review it later. <strong>"The most valuable thing you can do is to be radically transparent about your thinking so you can stress-test it."</strong></div>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title">New Entry</div>
+      <div style="margin-bottom:10px">
+        <input id="jTitle" type="text" placeholder="Decision or thesis (e.g., 'Moving 10% to gold')" style="width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--t1);font-size:14px;font-family:inherit;margin-bottom:8px">
+        <textarea id="jBody" rows="4" placeholder="Your reasoning. What data supports this? What could prove you wrong? What's the trigger to reverse?" style="width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--t1);font-size:13px;font-family:inherit;resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <select id="jTag" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px">
+          <option value="portfolio">Portfolio Move</option>
+          <option value="macro">Macro Thesis</option>
+          <option value="prep">Preparedness</option>
+          <option value="observation">Observation</option>
+          <option value="review">Review / Reflection</option>
+        </select>
+        <button id="jAdd" style="padding:8px 20px;background:var(--gold);color:var(--bg0);border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px">Add Entry</button>
+      </div>
+    </div>
+    <div class="section-header"><h2>Previous Entries (${entries.length})</h2></div>
+    ${entries.length===0?'<div class="card"><div style="font-size:13px;color:var(--t3);text-align:center;padding:20px">No entries yet. Start recording your decisions to build your track record.</div></div>':''}
+    ${entries.slice().reverse().map((e,i)=>{
+      const idx = entries.length - 1 - i;
+      const tagColors = {portfolio:'var(--gold)',macro:'var(--blue)',prep:'var(--green)',observation:'var(--cyan)',review:'var(--purple)'};
+      return `<div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <span style="font-size:11px;color:var(--t3)">${e.date}</span>
+            <span class="badge" style="margin-left:8px;font-size:9px;padding:2px 8px;border-radius:10px;background:${tagColors[e.tag]||'var(--t3)'}22;color:${tagColors[e.tag]||'var(--t3)'};border:1px solid ${tagColors[e.tag]||'var(--t3)'}44">${e.tag}</span>
+          </div>
+          <button data-jdel="${idx}" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--t3);cursor:pointer;font-size:11px">delete</button>
+        </div>
+        <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px">${e.title}</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.7;white-space:pre-wrap">${e.body}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ========================
+// DEBT CLOCK
+// ========================
+function renderDebtClock(){
+  // US national debt ~36.4T as of Feb 2026, growing ~$1T every ~100 days
+  const baseDebt = 36.4e12;
+  const baseDate = new Date('2026-02-15');
+  const perSecond = 1e12/(100*86400); // ~$1T per 100 days
+  const now = new Date();
+  const elapsed = (now - baseDate)/1000;
+  const currentDebt = baseDebt + (elapsed * perSecond);
+  const debtStr = '$' + (currentDebt/1e12).toFixed(6) + ' Trillion';
+
+  const thresholds = [
+    {val:20,label:'$20T',year:'2017',note:'Debt doubled since 2008 crisis',color:'var(--gold)'},
+    {val:28,label:'$28T',year:'2021',note:'COVID spending. Dalio: "the accelerant"',color:'var(--orange)'},
+    {val:31,label:'$31T',year:'2023',note:'Debt ceiling crisis. Interest payments surpass $700B',color:'var(--orange)'},
+    {val:34,label:'$34T',year:'2024',note:'Interest exceeds defense budget for first time',color:'var(--red)'},
+    {val:36.4,label:'$36.4T',year:'NOW',note:'Dalio Phase 5. $1.1T annual interest. 7% deficit/GDP.',color:'var(--red)'},
+    {val:40,label:'$40T',year:'~2027',note:'Projected. $1.1T funding gap. Auction stress likely.',color:'var(--red)'},
+    {val:50,label:'$50T',year:'~2030',note:'Dalio: restructuring / new monetary order territory',color:'var(--red)'},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>US National Debt Clock</h2><span class="badge badge-red pulse">LIVE</span></div>
+    <div class="card" style="text-align:center;margin-bottom:24px">
+      <div class="card-title">US National Debt (Estimated Real-Time)</div>
+      <div id="debtCounter" style="font-size:48px;font-weight:800;color:var(--red);font-family:'SF Mono',monospace;letter-spacing:2px;margin:16px 0">${debtStr}</div>
+      <div style="font-size:14px;color:var(--t2)">Growing approximately <strong style="color:var(--red)">$31,710 per second</strong> | $2.74 billion per day | $1 trillion every ~100 days</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Dalio Threshold Map</div>
+      <div style="position:relative;height:${thresholds.length*56}px;margin:16px 0">
+        ${thresholds.map((t,i) => {
+          const pct = ((t.val-15)/(50-15))*100;
+          const isCurrent = t.year === 'NOW';
+          return `<div style="position:absolute;top:${i*56}px;left:0;right:0;display:flex;align-items:center;gap:12px">
+            <div style="width:80px;text-align:right;font-size:14px;font-weight:700;color:${t.color}">${t.label}</div>
+            <div style="flex:1;position:relative;height:32px">
+              <div style="position:absolute;top:0;left:0;height:100%;width:${pct}%;background:${t.color}${isCurrent?'':'33'};border-radius:6px;${isCurrent?'box-shadow:0 0 16px '+t.color+'55':''}"></div>
+              <div style="position:absolute;top:0;left:${pct}%;height:100%;display:flex;align-items:center;padding-left:8px">
+                <span style="font-size:11px;color:var(--t3);white-space:nowrap">${t.year} — ${t.note}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Per Citizen</div>
+        <div class="card-value" style="color:var(--red)">$${Math.round(currentDebt/335000000).toLocaleString()}</div>
+        <div class="card-sub">~335M population</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Per Taxpayer</div>
+        <div class="card-value" style="color:var(--red)">$${Math.round(currentDebt/150000000).toLocaleString()}</div>
+        <div class="card-sub">~150M taxpayers</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Debt-to-GDP</div>
+        <div class="card-value" style="color:var(--red)">~125%</div>
+        <div class="card-sub">Dalio: >100% = unsustainable</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;border-left:3px solid var(--gold)">
+      <div class="card-title">Dalio's Key Insight</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        <strong>"We're spending 40% more than we're taking in, and this is a chronic problem."</strong><br><br>
+        The debt NUMBER matters less than the TRAJECTORY. When debt grows faster than income, you eventually hit a wall. The US hit that wall. The only question is whether the resolution is managed (beautiful deleveraging) or chaotic (crisis). Dalio doesn't think our political system can manage it.
+      </div>
+    </div>
+  </div>`;
+}
+
+// Animate the debt counter
+setInterval(()=>{
+  const el = document.getElementById('debtCounter');
+  if(!el) return;
+  const baseDebt = 36.4e12;
+  const baseDate = new Date('2026-02-15');
+  const perSecond = 1e12/(100*86400);
+  const elapsed = (new Date() - baseDate)/1000;
+  const cur = baseDebt + (elapsed * perSecond);
+  el.textContent = '$' + (cur/1e12).toFixed(6) + ' Trillion';
+}, 100);
+
+// ========================
+// EMPIRE COMPARISON (CANVAS RADAR)
+// ========================
+function renderEmpires(){
+  const dimensions = ['Education','Innovation','Competitiveness','Military','Trade','Financial Center','Reserve Currency','Output'];
+  const empires = [
+    {name:'US (2026)',color:'var(--red)',rgb:'246,70,93',scores:[7,9,6,9,5,7,6,7]},
+    {name:'US (1950 peak)',color:'var(--green)',rgb:'14,203,129',scores:[9,9,9,10,9,10,10,10]},
+    {name:'British Empire (1900)',color:'var(--cyan)',rgb:'6,182,212',scores:[8,8,8,9,9,10,9,9]},
+    {name:'British Empire (1950)',color:'var(--blue)',rgb:'59,130,246',scores:[6,6,5,6,4,5,4,6]},
+    {name:'Dutch Empire (1700)',color:'var(--gold)',rgb:'240,185,11',scores:[9,9,10,7,10,10,10,8]},
+    {name:'China (2026)',color:'var(--purple)',rgb:'139,92,246',scores:[7,8,8,8,9,6,3,9]},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Empire Comparison — Dalio's Framework</h2><span class="badge badge-gold">500 YEARS OF DATA</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio measures empires across 8 key dimensions. This comparison shows where the US stands today versus its own peak, and versus other empires at comparable points in their cycles. The pattern is always the same: rise, peak, decline.</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Power Index by Dimension (1-10 scale)</div>
+      <table class="data-table">
+        <thead><tr><th>Empire</th>${dimensions.map(d=>`<th>${d}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>
+          ${empires.map(e=>`<tr>
+            <td style="color:${e.color};font-weight:600">${e.name}</td>
+            ${e.scores.map(s=>{
+              const c = s>=8?'var(--green)':s>=6?'var(--gold)':s>=4?'var(--orange)':'var(--red)';
+              return `<td style="color:${c};font-weight:600;text-align:center">${s}</td>`;
+            }).join('')}
+            <td style="font-weight:700;color:${e.color}">${e.scores.reduce((a,b)=>a+b,0)}/80</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card" style="border-left:3px solid var(--red)">
+        <div class="card-title" style="color:var(--red)">US Decline Trajectory</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8">
+          <strong>1950 (peak):</strong> 86/80 — dominant across every dimension<br>
+          <strong>2026 (now):</strong> 66/80 — 23% decline from peak<br><br>
+          <strong>Biggest drops:</strong> Trade (-4), Reserve Currency (-4), Financial Center (-3), Competitiveness (-3)<br>
+          <strong>Still strong:</strong> Innovation (9), Military (9)<br><br>
+          Dalio's pattern: military is always the LAST thing to decline. It masks the underlying erosion of economic fundamentals. The British Empire was still the world's largest military force in 1945 — but was already bankrupt.
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--purple)">
+        <div class="card-title" style="color:var(--purple)">China's Rise Trajectory</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.8">
+          <strong>2026:</strong> 58/80 — rapidly closing the gap<br><br>
+          <strong>Strong:</strong> Trade (9), Output (9), Military (8), Innovation (8)<br>
+          <strong>Weak:</strong> Reserve Currency (3) — the yuan isn't trusted globally yet<br><br>
+          Dalio: "The biggest risk period is when the rising power approaches parity with the declining power." That's where we are. The gap is the narrowest it's been since the British-American transition in the 1940s. China doesn't need to surpass the US — it just needs to get close enough that conflict becomes tempting.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;border-left:3px solid var(--gold)">
+      <div class="card-title">The Dutch Lesson</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        The Dutch Empire scored 83/80 at its peak (1650). By 1780, when it lost to Britain, it scored 42/80. The decline took ~130 years. The British Empire scored 82/80 at peak (1900). By 1950 it scored 46/80. That took ~50 years — faster because cycles are accelerating. The US scored 86/80 at peak (1950). If the pattern holds, the decline takes 50-75 years — putting the low point at 2000-2025. <strong style="color:var(--gold)">We may already be there.</strong>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// NET WORTH TRACKER
+// ========================
+function renderNetWorth(){
+  const entries = STATE.networth || [];
+  const inflRate = 0.05; // 5% assumed annual inflation
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Net Worth Tracker</h2><span class="badge badge-blue">NOMINAL vs REAL</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio's core point: the NOMINAL number lies. Track your net worth over time in both nominal dollars AND inflation-adjusted (real) dollars. The gap between them is what the government is silently taking from you.</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Add Monthly Snapshot</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Month</label><input id="nwDate" type="month" value="${new Date().toISOString().slice(0,7)}" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px"></div>
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Total Assets</label><input id="nwAssets" type="number" placeholder="$0" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:140px"></div>
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Total Debts</label><input id="nwDebts" type="number" placeholder="$0" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:140px"></div>
+        <button id="nwAdd" style="padding:8px 20px;background:var(--gold);color:var(--bg0);border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;height:38px">Add</button>
+      </div>
+    </div>
+
+    ${entries.length > 0 ? `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Net Worth Over Time</div>
+      <div style="display:flex;height:250px;align-items:end;gap:2px;padding:20px 0;border-bottom:1px solid var(--border)">
+        ${(()=>{
+          const maxNW = Math.max(...entries.map(e=>e.networth), 1);
+          const firstDate = new Date(entries[0].date+'T00:00:00');
+          return entries.map((e,i)=>{
+            const monthsElapsed = ((new Date(e.date+'T00:00:00'))-firstDate)/(1000*60*60*24*30.44);
+            const realNW = e.networth / Math.pow(1+inflRate/12, monthsElapsed);
+            const nomH = Math.max((e.networth/maxNW)*200, 4);
+            const realH = Math.max((realNW/maxNW)*200, 4);
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;justify-content:end">
+              <div style="font-size:9px;color:var(--t3);transform:rotate(-45deg);white-space:nowrap;margin-bottom:4px">${e.date}</div>
+              <div title="Nominal: $${e.networth.toLocaleString()}" style="width:60%;height:${nomH}px;background:var(--blue);border-radius:3px 3px 0 0;opacity:.7"></div>
+              <div title="Real: $${Math.round(realNW).toLocaleString()}" style="width:60%;height:${realH}px;background:var(--green);border-radius:3px 3px 0 0;opacity:.7;margin-top:-${realH}px"></div>
+            </div>`;
+          }).join('');
+        })()}
+      </div>
+      <div style="display:flex;gap:16px;margin-top:8px">
+        <span style="font-size:11px;color:var(--blue)">Blue = Nominal</span>
+        <span style="font-size:11px;color:var(--green)">Green = Inflation-Adjusted (5%/yr)</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">History</div>
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Assets</th><th>Debts</th><th>Net Worth (Nominal)</th><th>Net Worth (Real)</th><th>Gap</th><th></th></tr></thead>
+        <tbody>
+          ${entries.slice().reverse().map((e,i)=>{
+            const idx = entries.length-1-i;
+            const firstDate = new Date(entries[0].date+'T00:00:00');
+            const monthsElapsed = ((new Date(e.date+'T00:00:00'))-firstDate)/(1000*60*60*24*30.44);
+            const realNW = e.networth / Math.pow(1+inflRate/12, monthsElapsed);
+            const gap = e.networth - realNW;
+            return `<tr>
+              <td>${e.date}</td>
+              <td>$${e.assets.toLocaleString()}</td>
+              <td>$${e.debts.toLocaleString()}</td>
+              <td style="font-weight:600;color:var(--blue)">$${e.networth.toLocaleString()}</td>
+              <td style="font-weight:600;color:var(--green)">$${Math.round(realNW).toLocaleString()}</td>
+              <td style="color:var(--red);font-weight:600">-$${Math.round(gap).toLocaleString()}</td>
+              <td><button data-nwdel="${idx}" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--t3);cursor:pointer;font-size:11px">x</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : `<div class="card"><div style="text-align:center;padding:40px;color:var(--t3)">Add your first monthly snapshot above to start tracking. The gap between nominal and real net worth is Dalio's "stealth default" in action.</div></div>`}
+  </div>`;
+}
+
+// ========================
+// BUG-OUT PLAN BUILDER
+// ========================
+function renderBugout(){
+  const b = STATE.bugout;
+  const fields = [
+    {section:'Hole 1: Primary Location',fields:[
+      {id:'h1_address',label:'Address',type:'text'},
+      {id:'h1_supplies',label:'Supplies stored here',type:'textarea'},
+      {id:'h1_contacts',label:'Key local contacts',type:'textarea'},
+      {id:'h1_water',label:'Water source',type:'text'},
+    ]},
+    {section:'Hole 2: Domestic Backup',fields:[
+      {id:'h2_address',label:'Address / Location',type:'text'},
+      {id:'h2_route',label:'Route from Hole 1 (roads, distance, time)',type:'textarea'},
+      {id:'h2_alt_route',label:'Alternate route',type:'textarea'},
+      {id:'h2_supplies',label:'Supplies pre-positioned',type:'textarea'},
+      {id:'h2_contacts',label:'Key contacts at this location',type:'textarea'},
+    ]},
+    {section:'Hole 3: International Option',fields:[
+      {id:'h3_country',label:'Country / Location',type:'text'},
+      {id:'h3_legal',label:'Legal status (visa, passport, residency)',type:'text'},
+      {id:'h3_banking',label:'Banking / financial assets there',type:'textarea'},
+      {id:'h3_contacts',label:'Key contacts',type:'textarea'},
+      {id:'h3_plan',label:'How to get there in emergency',type:'textarea'},
+    ]},
+    {section:'Go-Bag Contents',fields:[
+      {id:'bag_docs',label:'Documents (passports, IDs, cash, crypto keys)',type:'textarea'},
+      {id:'bag_medical',label:'Medical (meds, first aid, prescriptions)',type:'textarea'},
+      {id:'bag_food',label:'Food/Water (72hr minimum)',type:'textarea'},
+      {id:'bag_gear',label:'Gear (flashlight, radio, knife, fire, clothing)',type:'textarea'},
+      {id:'bag_comms',label:'Communication (phone, charger, HAM, contacts list)',type:'textarea'},
+    ]},
+    {section:'Emergency Contacts & Comms',fields:[
+      {id:'comms_family',label:'Family rally point & communication plan',type:'textarea'},
+      {id:'comms_network',label:'Trusted network (names, skills, locations)',type:'textarea'},
+      {id:'comms_radio',label:'Radio frequencies / channels',type:'text'},
+      {id:'comms_code',label:'Code words / signals if comms monitored',type:'text'},
+    ]},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Personal Bug-Out Plan</h2><span class="badge badge-red">THREE HOLES</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">Dalio: <strong>"A smart rabbit has three holes."</strong> Fill this out. Print it. Keep a copy in your go-bag. All data stays in your browser — nothing is transmitted. Use Ctrl+P to print this page.</div>
+    </div>
+    ${fields.map(s => `
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title" style="color:var(--gold);font-size:13px">${s.section}</div>
+        ${s.fields.map(f => `
+          <div style="margin-bottom:10px">
+            <label style="font-size:12px;color:var(--t3);display:block;margin-bottom:4px">${f.label}</label>
+            ${f.type==='textarea'
+              ? `<textarea data-bugout="${f.id}" rows="2" style="width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;font-family:inherit;resize:vertical">${b[f.id]||''}</textarea>`
+              : `<input data-bugout="${f.id}" type="text" value="${b[f.id]||''}" style="width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px">`
+            }
+          </div>
+        `).join('')}
+      </div>
+    `).join('')}
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="card-title">Trigger Conditions — When Do You Execute?</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        Define YOUR personal triggers. Examples:<br>
+        <strong>Move to Hole 2 if:</strong> Sustained civil unrest in your city >7 days, martial law declared, supply chain breaks >2 weeks, personal safety threatened<br>
+        <strong>Move to Hole 3 if:</strong> Capital controls imposed, bank accounts frozen, passport restrictions announced, active armed conflict in your state<br>
+        <strong>Activate go-bag if:</strong> Any of the above with <24hr warning, natural disaster, forced evacuation
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// MEDIA LIBRARY
+// ========================
+function renderMedia(){
+  const videos = [
+    {title:'How The Economic Machine Works',author:'Ray Dalio',dur:'30 min',url:'https://www.youtube.com/watch?v=PHe0bXAIuk0',desc:'The foundational video. Explains the 3 forces that drive the economy: productivity, short-term debt cycle, long-term debt cycle. Start here.'},
+    {title:'Principles for Dealing with the Changing World Order',author:'Ray Dalio',dur:'43 min',url:'https://www.youtube.com/watch?v=xguam0TKMw8',desc:'Animated summary of the book. 500 years of empire rise and fall. Where the US sits in the cycle. Essential viewing.'},
+    {title:'How Countries Go Broke — Introduction',author:'Ray Dalio',dur:'Free PDF',url:'https://economicprinciples.org/how-countries-go-broke',desc:'First chapters of the 2025 #1 NYT Bestseller. The Big Debt Cycle explained. Free on economicprinciples.org.'},
+    {title:'Dalio on HBR: Economic Trends & Uncertainty',author:'HBR Podcast',dur:'45 min',url:'https://hbr.org/podcast/2026/01/ray-dalio-on-economic-trends-investing-and-making-decisions-amid-uncertainty',desc:'January 2026. Latest thinking on investing and decision-making amid the current transition.'},
+  ];
+  const books = [
+    {title:'Principles for Dealing with the Changing World Order',author:'Ray Dalio (2021)',desc:'The master framework. 500 years of data on how empires rise, peak, and decline. Where the US, China, and the world sit in the cycle.'},
+    {title:'How Countries Go Broke: The Big Cycle',author:'Ray Dalio (2025)',desc:'#1 NYT Bestseller. Detailed explanation of the Big Debt Cycle. Why the US, Europe, Japan, and China are all at risk. Solutions and probabilities.'},
+    {title:'Principles: Life and Work',author:'Ray Dalio (2017)',desc:'Dalio\'s decision-making framework. Radical transparency, believability-weighted decision making, pain + reflection = progress.'},
+    {title:'The Modern Survival Manual',author:'Fernando "FerFAL" Aguirre',desc:'First-hand account of surviving Argentina\'s 2001 economic collapse. Practical, non-theoretical survival strategies for a modern economic crisis.'},
+    {title:'When Money Dies',author:'Adam Fergusson',desc:'The definitive account of Weimar Germany\'s hyperinflation. What happened to real people when currency collapsed. Essential historical parallel.'},
+    {title:'Antifragile',author:'Nassim Nicholas Taleb',desc:'Complementary framework to Dalio. How to build systems (and portfolios) that get STRONGER from disorder rather than weaker. The barbell strategy.'},
+    {title:'The Fourth Turning',author:'Strauss & Howe',desc:'Generational theory that aligns with Dalio\'s cycles. Predicts a crisis period ("Fourth Turning") every ~80 years. We\'re in one now.'},
+    {title:'Currency Wars',author:'James Rickards',desc:'Detailed analysis of how currency devaluations have been used as weapons throughout history. Directly relevant to Dalio\'s monetary cycle framework.'},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Media Library</h2><span class="badge badge-gold">ESSENTIAL VIEWING & READING</span></div>
+
+    <div class="section-header"><h2>Videos & Podcasts</h2></div>
+    <div class="grid grid-2">
+      ${videos.map(v=>`
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="card-title" style="margin-bottom:0;color:var(--gold)">${v.author}</div>
+            <span style="font-size:11px;color:var(--t3)">${v.dur}</span>
+          </div>
+          <a href="${v.url}" target="_blank" style="font-size:15px;font-weight:600;color:var(--blue);text-decoration:none;display:block;margin-bottom:8px">${v.title} &rarr;</a>
+          <div style="font-size:12px;color:var(--t2);line-height:1.6">${v.desc}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header"><h2>Essential Reading List</h2></div>
+    <div class="grid grid-2">
+      ${books.map(b=>`
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:4px">${b.title}</div>
+          <div style="font-size:12px;color:var(--gold);margin-bottom:8px">${b.author}</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.6">${b.desc}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+// ========================
+// EXPORT / IMPORT / BACKUP
+// ========================
+function renderBackup(){
+  const dataKeys = ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario','dcc_tab'];
+  const dataSize = dataKeys.reduce((s,k)=>{const v=localStorage.getItem(k);return s+(v?v.length:0);},0);
+  const journalCount = STATE.journal.length;
+  const checkCount = Object.values(STATE.checks).filter(Boolean).length;
+  const nwCount = STATE.networth.length;
+  const hasBugout = Object.keys(STATE.bugout).length > 0;
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Export / Import / Backup</h2><span class="badge badge-blue">DATA MANAGEMENT</span></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">All your data lives in your browser's localStorage. Export it as a backup JSON file. Import to restore on a new device or after clearing your browser. <strong>Dalio principle: always have redundancy.</strong></div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:16px">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Your Data Summary</div>
+        <div style="font-size:13px;color:var(--t2);line-height:2;text-align:left;margin-top:8px">
+          Journal entries: <strong style="color:var(--t1)">${journalCount}</strong><br>
+          Checklist items completed: <strong style="color:var(--t1)">${checkCount}</strong><br>
+          Net worth snapshots: <strong style="color:var(--t1)">${nwCount}</strong><br>
+          Bug-out plan: <strong style="color:var(--t1)">${hasBugout?'Configured':'Not started'}</strong><br>
+          Portfolio data: <strong style="color:var(--t1)">${Object.keys(STATE.portfolio).length>0?'Entered':'Empty'}</strong><br>
+          Health data: <strong style="color:var(--t1)">${Object.keys(STATE.health).length>0?'Entered':'Empty'}</strong><br>
+          Total data size: <strong style="color:var(--t1)">${(dataSize/1024).toFixed(1)} KB</strong>
+        </div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:16px;justify-content:center;align-items:center">
+        <button id="exportBtn" style="padding:14px 32px;background:var(--green);color:var(--bg0);border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;width:100%">Export All Data (JSON)</button>
+        <div style="position:relative;width:100%">
+          <button id="importBtnLabel" style="padding:14px 32px;background:var(--blue);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;width:100%">Import Data (JSON)</button>
+          <input id="importBtn" type="file" accept=".json" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer">
+        </div>
+        <button id="resetBtn" style="padding:10px 32px;background:transparent;color:var(--red);border:1px solid var(--red);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;width:100%">Reset All Data</button>
+      </div>
+    </div>
+
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="card-title">Backup Recommendations</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        <strong>1.</strong> Export weekly and save to an encrypted USB drive<br>
+        <strong>2.</strong> Keep a copy in secure cloud storage (encrypted)<br>
+        <strong>3.</strong> The bug-out plan should also be printed physically<br>
+        <strong>4.</strong> If you clear browser data, your dashboard resets — always have a backup<br>
+        <strong>5.</strong> "A smart rabbit has three holes" applies to data too
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// EVENT LISTENERS
+// ========================
+function attachListeners(){
+  // Checklist
+  document.querySelectorAll('.check-item').forEach(el => {
+    el.onclick = () => {
+      const key = el.dataset.check;
+      STATE.checks[key] = !STATE.checks[key];
+      saveChecks();
+      render();
+    };
+  });
+  // Portfolio inputs
+  document.querySelectorAll('[data-port-id]').forEach(el => {
+    el.oninput = () => {
+      STATE.portfolio[el.dataset.portId] = el.value;
+      savePortfolio();
+      clearTimeout(window._portTimer);
+      window._portTimer = setTimeout(render, 400);
+    };
+  });
+  // Scenario selector
+  document.querySelectorAll('[data-scenario]').forEach(el => {
+    el.onclick = () => {
+      STATE.scenario = el.dataset.scenario;
+      saveScenario();
+      render();
+    };
+  });
+  // Health inputs
+  document.querySelectorAll('[data-health]').forEach(el => {
+    el.oninput = () => {
+      STATE.health[el.dataset.health] = el.value;
+      saveHealth();
+      clearTimeout(window._healthTimer);
+      window._healthTimer = setTimeout(render, 400);
+    };
+  });
+  // Journal add
+  const jAdd = document.getElementById('jAdd');
+  if(jAdd){
+    jAdd.onclick = () => {
+      const title = document.getElementById('jTitle').value.trim();
+      const body = document.getElementById('jBody').value.trim();
+      const tag = document.getElementById('jTag').value;
+      if(!title) return;
+      STATE.journal.push({
+        title, body, tag,
+        date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      });
+      saveJournal();
+      render();
+    };
+  }
+  // Journal delete
+  document.querySelectorAll('[data-jdel]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const idx = parseInt(el.dataset.jdel);
+      STATE.journal.splice(idx, 1);
+      saveJournal();
+      render();
+    };
+  });
+  // Bug-out plan inputs
+  document.querySelectorAll('[data-bugout]').forEach(el => {
+    el.oninput = () => {
+      STATE.bugout[el.dataset.bugout] = el.value;
+      saveBugout();
+    };
+  });
+  // Net worth add
+  const nwAdd = document.getElementById('nwAdd');
+  if(nwAdd){
+    nwAdd.onclick = () => {
+      const date = document.getElementById('nwDate').value;
+      const assets = parseFloat(document.getElementById('nwAssets').value) || 0;
+      const debts = parseFloat(document.getElementById('nwDebts').value) || 0;
+      if(!date || assets===0) return;
+      STATE.networth.push({ date, assets, debts, networth: assets - debts });
+      STATE.networth.sort((a,b) => a.date.localeCompare(b.date));
+      saveNetworth();
+      render();
+    };
+  }
+  // Net worth delete
+  document.querySelectorAll('[data-nwdel]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const idx = parseInt(el.dataset.nwdel);
+      STATE.networth.splice(idx, 1);
+      saveNetworth();
+      render();
+    };
+  });
+  // Export
+  const exportBtn = document.getElementById('exportBtn');
+  if(exportBtn){
+    exportBtn.onclick = () => {
+      const dataKeys = ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario'];
+      const backup = {};
+      dataKeys.forEach(k => { const v = localStorage.getItem(k); if(v) backup[k] = JSON.parse(v); });
+      backup._exportDate = new Date().toISOString();
+      backup._version = '4.0';
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dalio-dashboard-backup-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  }
+  // Import
+  const importBtn = document.getElementById('importBtn');
+  if(importBtn){
+    importBtn.onchange = (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if(!data._version){ alert('Invalid backup file.'); return; }
+          if(!confirm('This will overwrite all current data. Continue?')) return;
+          Object.keys(data).forEach(k => {
+            if(k.startsWith('dcc_')) localStorage.setItem(k, typeof data[k]==='string' ? data[k] : JSON.stringify(data[k]));
+          });
+          // Reload state from localStorage
+          STATE.checks = JSON.parse(localStorage.getItem('dcc_checks') || '{}');
+          STATE.portfolio = JSON.parse(localStorage.getItem('dcc_portfolio') || '{}');
+          STATE.journal = JSON.parse(localStorage.getItem('dcc_journal') || '[]');
+          STATE.health = JSON.parse(localStorage.getItem('dcc_health') || '{}');
+          STATE.networth = JSON.parse(localStorage.getItem('dcc_networth') || '[]');
+          STATE.bugout = JSON.parse(localStorage.getItem('dcc_bugout') || '{}');
+          STATE.scenario = localStorage.getItem('dcc_scenario') || 'baseline';
+          alert('Data imported successfully!');
+          render();
+        } catch(err) { alert('Error reading file: ' + err.message); }
+      };
+      reader.readAsText(file);
+    };
+  }
+  // Reset
+  const resetBtn = document.getElementById('resetBtn');
+  if(resetBtn){
+    resetBtn.onclick = () => {
+      if(!confirm('This will permanently delete ALL your dashboard data. Are you sure?')) return;
+      if(!confirm('Really? This cannot be undone. Export first if you want a backup.')) return;
+      ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario','dcc_tab'].forEach(k => localStorage.removeItem(k));
+      STATE.checks = {};
+      STATE.portfolio = {};
+      STATE.journal = [];
+      STATE.health = {};
+      STATE.networth = [];
+      STATE.bugout = {};
+      STATE.scenario = 'baseline';
+      STATE.tab = 'overview';
+      render();
+    };
+  }
+}
+
+// INIT
+render();
+</script>
+</body>
+</html>
