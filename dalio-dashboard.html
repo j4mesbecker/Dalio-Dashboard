@@ -186,6 +186,57 @@ input[type="number"]{-moz-appearance:textfield}
 /* TOOLTIP */
 .tip{position:relative;cursor:help;border-bottom:1px dotted var(--t3)}
 .tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg3);color:var(--t1);padding:6px 12px;border-radius:6px;font-size:11px;white-space:nowrap;border:1px solid var(--border);z-index:50}
+
+/* WORLD MAP */
+.map-wrap{position:relative;width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.map-svg{width:100%;height:auto;display:block}
+.map-svg .ocean{fill:var(--bg1)}
+.map-svg .graticule{stroke:rgba(37,48,84,.4);stroke-width:.3;fill:none}
+.map-svg .continent{fill:#0f1a2e;stroke:rgba(37,48,84,.7);stroke-width:.5;transition:fill .3s}
+.map-svg .continent:hover{fill:#162240}
+.map-svg .trade-route{fill:none;stroke-width:1.5;stroke-linecap:round;opacity:.7;transition:opacity .3s,stroke-width .3s}
+.map-svg .trade-route:hover{opacity:1;stroke-width:2.5}
+.map-svg .trade-route.energy{stroke:var(--orange)}
+.map-svg .trade-route.goods{stroke:var(--cyan)}
+.map-svg .trade-route.financial{stroke:var(--gold)}
+.map-svg .trade-route.container{stroke:var(--blue)}
+.map-svg .trade-route.grain{stroke:var(--green)}
+.map-svg .trade-route.military{stroke:var(--purple)}
+@keyframes shipMove{0%{offset-distance:0%}100%{offset-distance:100%}}
+@keyframes shipPulse{0%,100%{r:3;opacity:.9}50%{r:5;opacity:1}}
+.map-svg .ship{animation:shipPulse 2s ease-in-out infinite}
+.map-svg .port-dot{transition:r .2s,fill .2s;cursor:pointer}
+.map-svg .port-dot:hover{r:5}
+.map-svg .port-label{font-size:7px;fill:var(--t2);font-family:-apple-system,sans-serif;pointer-events:none;font-weight:500}
+.map-svg .chokepoint{cursor:pointer}
+.map-svg .choke-ring{fill:none;stroke:var(--red);stroke-width:1;opacity:.6}
+@keyframes chokeFlash{0%,100%{opacity:.3;r:6}50%{opacity:.8;r:9}}
+.map-svg .choke-pulse{animation:chokeFlash 2.5s ease-in-out infinite}
+.map-svg .choke-label{font-size:6px;fill:var(--red);font-family:-apple-system,sans-serif;pointer-events:none;font-weight:700;letter-spacing:.3px}
+@keyframes routeDash{to{stroke-dashoffset:-20}}
+.map-svg .route-animated{stroke-dasharray:8 4;animation:routeDash 1.5s linear infinite}
+.map-legend{display:flex;flex-wrap:wrap;gap:16px;padding:16px 20px;border-top:1px solid var(--border);background:rgba(12,17,25,.6)}
+.map-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);cursor:pointer;transition:opacity .2s}
+.map-legend-item:hover{color:var(--t1)}
+.map-legend-dot{width:12px;height:3px;border-radius:2px}
+.map-info-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px}
+.map-info-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;transition:all .25s}
+.map-info-card:hover{border-color:rgba(240,185,11,.25)}
+.map-info-card h4{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.map-info-card p{font-size:12px;color:var(--t2);line-height:1.6}
+.map-info-card .stat{font-size:20px;font-weight:700;margin:4px 0}
+.map-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:16px}
+.map-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.map-stat-card .label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);font-weight:600}
+.map-stat-card .value{font-size:22px;font-weight:700;margin:6px 0 2px}
+.map-stat-card .note{font-size:11px;color:var(--t2)}
+.chokepoint-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.choke-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden;transition:all .25s}
+.choke-card:hover{border-color:rgba(246,70,93,.3);background:var(--bg3)}
+.choke-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--red);opacity:.5}
+.choke-card .choke-name{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px}
+.choke-card .choke-detail{font-size:11px;color:var(--t2);line-height:1.5}
+.choke-card .choke-stat{font-size:16px;font-weight:700;color:var(--red);margin:4px 0}
 </style>
 </head>
 <body>
@@ -338,6 +389,89 @@ const GLOBAL_POWERS = [
 ];
 
 // ========================
+// WORLD MAP — TRADE ROUTES & CHOKEPOINTS
+// ========================
+// Coordinate system: viewBox 0 0 1000 500
+// x = (lon + 180) / 360 * 1000, y = (90 - lat) / 180 * 500
+
+const MAP_PORTS = [
+  {id:'shanghai',name:'Shanghai',x:837,y:163,vol:'47M TEU',rank:1,type:'container',note:'World\'s busiest container port. Gateway to Yangtze River Delta manufacturing.'},
+  {id:'singapore',name:'Singapore',x:788,y:246,vol:'37M TEU',rank:2,type:'container',note:'Strategic transshipment hub controlling Malacca Strait traffic.'},
+  {id:'rotterdam',name:'Rotterdam',x:513,y:106,vol:'14M TEU',rank:10,type:'container',note:'Europe\'s largest port. North Sea gateway for EU trade.'},
+  {id:'newyork',name:'New York',x:294,y:137,vol:'9.5M TEU',rank:15,type:'container',note:'Largest US East Coast port. Trans-Atlantic hub.'},
+  {id:'losangeles',name:'Los Angeles',x:172,y:157,vol:'9.9M TEU',rank:14,type:'container',note:'Top US gateway for Asia-Pacific trade.'},
+  {id:'dubai',name:'Dubai',x:654,y:181,vol:'15M TEU',rank:8,type:'energy',note:'Middle East logistics hub. Jebel Ali is region\'s largest port.'},
+  {id:'mumbai',name:'Mumbai',x:703,y:197,vol:'5M TEU',rank:25,type:'container',note:'India\'s busiest port. Growing as China+1 manufacturing shifts.'},
+  {id:'tokyo',name:'Tokyo',x:889,y:151,vol:'4.5M TEU',rank:28,type:'container',note:'Japan\'s trade gateway. Key US ally in Pacific.'},
+  {id:'hongkong',name:'Hong Kong',x:817,y:188,vol:'16M TEU',rank:7,type:'financial',note:'Declining as trade hub, still major financial center.'},
+  {id:'hamburg',name:'Hamburg',x:528,y:101,vol:'8.7M TEU',rank:18,type:'container',note:'Germany\'s top port. China\'s COSCO owns 25% stake (controversy).'},
+  {id:'santos',name:'Santos',x:371,y:316,vol:'4.2M TEU',rank:30,type:'grain',note:'Brazil\'s #1 port. Key grain/soy export gateway.'},
+  {id:'capetown',name:'Cape Town',x:551,y:345,vol:'0.8M TEU',rank:60,type:'energy',note:'Alternative route when Suez is blocked. Adds 10 days.'},
+  {id:'busan',name:'Busan',x:860,y:155,vol:'22M TEU',rank:4,type:'container',note:'South Korea\'s mega-port. Samsung, Hyundai supply chain hub.'},
+  {id:'rassalhair',name:'Ras al-Khair',x:647,y:185,vol:'5M bbl/d',rank:0,type:'energy',note:'Saudi Arabia oil export terminal. Critical energy supply.'},
+  {id:'vladivostok',name:'Vladivostok',x:865,y:120,vol:'1M TEU',rank:45,type:'military',note:'Russia\'s Pacific Fleet HQ. Arctic route eastern terminus.'},
+  {id:'sydney',name:'Sydney',x:919,y:343,vol:'2.7M TEU',rank:35,type:'container',note:'Australia\'s trade hub. Iron ore, LNG exports to China.'},
+  {id:'mombasa',name:'Mombasa',x:611,y:262,vol:'1.4M TEU',rank:40,type:'container',note:'East Africa gateway. China Belt & Road investment hub.'},
+  {id:'piraeus',name:'Piraeus',x:571,y:152,vol:'5.4M TEU',rank:24,type:'container',note:'Greek port now majority owned by China\'s COSCO. EU entry point.'},
+  {id:'colombo',name:'Colombo',x:723,y:231,vol:'7.2M TEU',rank:20,type:'container',note:'Sri Lanka transshipment hub. India-China competition for influence.'},
+  {id:'norfolk',name:'Norfolk',x:286,y:151,vol:'3M TEU',rank:32,type:'military',note:'Largest US Navy base. Atlantic Fleet command.'},
+];
+
+const MAP_CHOKEPOINTS = [
+  {id:'malacca',name:'Strait of Malacca',x:788,y:240,flow:'25%',ships:'94K/yr',risk:'high',note:'25% of global trade. China\'s "Malacca Dilemma" — US could blockade in conflict.'},
+  {id:'suez',name:'Suez Canal',x:591,y:172,flow:'12%',ships:'20K/yr',risk:'critical',note:'12% of global trade. Houthi attacks rerouted 90% of traffic in 2024-25.'},
+  {id:'hormuz',name:'Strait of Hormuz',x:657,y:185,flow:'21%',ships:'17K/yr',risk:'critical',note:'21% of global oil transit. Iran threatens closure during every escalation.'},
+  {id:'panama',name:'Panama Canal',x:279,y:228,flow:'5%',ships:'14K/yr',risk:'high',note:'5% of global trade. Drought reduced capacity 36% in 2024. Climate risk.'},
+  {id:'bab',name:'Bab el-Mandeb',x:621,y:218,flow:'9%',ships:'25K/yr',risk:'critical',note:'9% of global trade. Houthi attacks forced major rerouting since Oct 2023.'},
+  {id:'bosporus',name:'Turkish Straits',x:575,y:140,flow:'3%',ships:'42K/yr',risk:'moderate',note:'Only exit from Black Sea. Russia-Ukraine war makes this strategically vital.'},
+  {id:'cape',name:'Cape of Good Hope',x:551,y:358,flow:'',ships:'',risk:'moderate',note:'Alternative to Suez. +10 days & $1M/ship extra cost. Usage surged 2024.'},
+  {id:'taiwan',name:'Taiwan Strait',x:839,y:185,flow:'',ships:'',risk:'extreme',note:'50% of global container traffic passes through. A blockade would collapse supply chains.'},
+  {id:'scs',name:'South China Sea',x:812,y:210,flow:'33%',ships:'',risk:'high',note:'$5.3T in trade annually. China claims 90%. Competing military buildups.'},
+];
+
+const MAP_ROUTES = [
+  {id:'transpacific',name:'Trans-Pacific (Asia→US West Coast)',type:'container',color:'var(--cyan)',vol:'$380B/yr',
+    path:'M837,163 Q900,170 940,178 Q970,185 985,200 Q1000,220 990,250 C920,280 400,220 172,157',
+    desc:'Largest bilateral trade corridor. Tariffs disrupting flows. China diversifying through SE Asia.'},
+  {id:'asiaeur_suez',name:'Asia→Europe via Suez',type:'container',color:'var(--blue)',vol:'$290B/yr',
+    path:'M837,163 Q817,180 788,240 Q770,230 723,231 Q700,215 657,185 Q640,180 621,180 L591,172 Q570,155 528,101 L513,106',
+    desc:'Primary Asia-Europe artery. Houthi attacks diverted 90% of traffic in 2024-25.'},
+  {id:'asiaeur_cape',name:'Asia→Europe via Cape',type:'container',color:'var(--blue)',vol:'Surge route',
+    path:'M788,240 Q750,280 700,320 Q650,360 600,370 Q570,365 551,345 Q530,320 520,280 Q510,220 513,106',
+    desc:'Fallback when Suez is disrupted. 10+ extra days. Major cost increase for shippers.',
+    dash:true},
+  {id:'persian_gulf',name:'Persian Gulf Oil Routes',type:'energy',color:'var(--orange)',vol:'20M bbl/day',
+    path:'M657,185 Q670,195 680,210 Q690,225 723,231 Q760,235 788,240',
+    desc:'21% of global oil. Iran, Saudi, Iraq, UAE, Kuwait exports. Single point of failure at Hormuz.'},
+  {id:'persian_west',name:'Gulf→Europe Oil',type:'energy',color:'var(--orange)',vol:'5M bbl/day',
+    path:'M657,185 Q640,180 621,190 Q610,185 591,172 Q575,155 551,140 Q540,130 528,120 L513,106',
+    desc:'Middle East crude to European refineries. Increasingly competing with Russian pipeline gas.'},
+  {id:'persian_asia',name:'Gulf→Asia Oil',type:'energy',color:'var(--orange)',vol:'15M bbl/day',
+    path:'M657,185 Q680,200 703,197 Q720,210 723,231 Q750,240 788,246',
+    desc:'China imports 70% of oil via sea. India and Japan heavily dependent. Vulnerability point.'},
+  {id:'transatlantic',name:'Trans-Atlantic',type:'goods',color:'var(--gold)',vol:'$420B/yr',
+    path:'M294,137 Q350,115 420,105 Q470,100 513,106',
+    desc:'US-EU goods and financial flows. Largest bilateral investment relationship globally.'},
+  {id:'southam_grain',name:'South America Grain Export',type:'grain',color:'var(--green)',vol:'$85B/yr',
+    path:'M371,316 Q380,290 370,260 Q350,220 294,137',
+    desc:'Brazil/Argentina soy, corn, beef to US/Europe/China. Food security critical route.'},
+  {id:'southam_china',name:'South America→China',type:'grain',color:'var(--green)',vol:'$120B/yr',
+    path:'M371,316 Q400,340 500,360 Q600,370 700,340 Q780,300 788,246 Q800,230 837,163',
+    desc:'Brazil is China\'s top food supplier. Soy, iron ore, oil. De-dollarization bilateral trade growing.'},
+  {id:'arctic',name:'Northern Sea Route (Arctic)',type:'goods',color:'var(--purple)',vol:'Emerging',
+    path:'M528,101 Q530,70 560,50 Q620,35 700,30 Q780,35 830,50 Q860,65 865,120',
+    desc:'Russia promoting as Suez alternative. Ice melting opening new corridor. China investing heavily.',
+    dash:true},
+  {id:'china_africa',name:'China→Africa (Belt & Road)',type:'goods',color:'var(--gold)',vol:'$280B/yr',
+    path:'M837,163 Q817,180 788,240 Q750,250 700,260 Q650,262 611,262',
+    desc:'Belt & Road Initiative. Port construction, loans, resource extraction. Neo-colonial concerns.'},
+  {id:'usmil_pacific',name:'US Military Pacific',type:'military',color:'var(--purple)',vol:'',
+    path:'M172,157 Q300,200 500,230 Q600,235 700,230 Q800,220 860,155',
+    desc:'US Pacific Fleet patrol routes. 7th Fleet forward-deployed. Deterrence against China.',
+    dash:true},
+];
+
+// ========================
 // DALIO'S 4 MARKET DRIVERS
 // ========================
 const MARKET_DRIVERS = {
@@ -391,6 +525,7 @@ const TABS = [
   {id:'powerindex', label:'18 Determinants'},
   {id:'conflict', label:'Conflict Gauge'},
   {id:'globalpower', label:'Global Powers'},
+  {id:'worldmap', label:'World Map'},
   {id:'drivers', label:'4 Market Drivers'},
   {id:'sixstages', label:'Six Stages'},
   {id:'markets', label:'Live Markets'},
@@ -531,6 +666,7 @@ function render(){
     case 'powerindex': app.innerHTML = renderPowerIndex(); break;
     case 'conflict': app.innerHTML = renderConflict(); break;
     case 'globalpower': app.innerHTML = renderGlobalPower(); break;
+    case 'worldmap': app.innerHTML = renderWorldMap(); break;
     case 'drivers': app.innerHTML = renderDrivers(); break;
     case 'sixstages': app.innerHTML = renderSixStages(); break;
     case 'markets': app.innerHTML = renderMarkets(); break;
@@ -1726,6 +1862,298 @@ function renderGlobalPower(){
           }).join('')}
         </tbody>
       </table>
+    </div>
+  </div>`;
+}
+
+// ========================
+// WORLD MAP — GLOBAL TRADE ROUTES
+// ========================
+function renderWorldMap(){
+  // Simplified continent outlines (SVG paths in our 1000x500 viewBox)
+  const continents = [
+    // North America
+    {name:'North America', path:'M55,62 L90,55 L130,52 L155,58 L170,68 L180,82 L175,95 L182,100 L195,98 L215,102 L235,98 L260,102 L280,108 L295,115 L305,108 L310,98 L305,90 L295,82 L280,78 L265,75 L260,68 L272,60 L288,52 L295,48 L285,42 L260,38 L240,35 L220,32 L195,30 L170,28 L145,22 L120,20 L100,22 L80,28 L65,35 L50,42 L42,55 L45,65 Z M155,58 L160,72 L165,80 L170,95 L165,108 L160,120 L155,135 L160,145 L168,155 L172,158 L168,162 L162,172 L158,180 L160,188 L168,195 L178,200 L188,205 L195,210 L200,218 L208,222 L218,220 L228,215 L238,218 L248,225 L258,228 L262,232 L268,228 L272,222 L278,218 L282,225 L279,228 L275,235 L268,240 L272,245 L280,242 L285,235 L290,228 L292,222 L295,215 L298,208 L300,200 L305,195 L310,190 L308,180 L305,170 L298,162 L295,155 L288,150 L282,148 L278,140 L282,132 L290,128 L298,122 L305,118 L305,108 L295,115 L280,108 L260,102 L235,98 L215,102 L195,98 L182,100 L175,95 L180,82 L170,68 L155,58 Z'},
+    // South America
+    {name:'South America', path:'M280,242 L285,248 L290,255 L295,262 L302,268 L310,275 L318,282 L328,290 L338,298 L348,308 L355,318 L360,325 L365,332 L368,340 L370,350 L368,360 L365,370 L360,378 L355,385 L348,392 L340,398 L332,405 L322,412 L312,418 L305,425 L298,430 L295,425 L298,418 L300,408 L298,398 L292,390 L285,382 L278,375 L272,368 L268,358 L265,348 L260,338 L258,328 L260,318 L262,308 L265,298 L268,288 L270,278 L272,268 L275,258 L278,248 L280,242 Z'},
+    // Europe
+    {name:'Europe', path:'M480,105 L488,98 L495,92 L502,88 L510,82 L518,78 L525,72 L530,68 L540,65 L548,68 L555,72 L560,78 L568,82 L575,85 L582,82 L588,78 L592,75 L598,72 L605,78 L598,85 L592,92 L588,98 L585,105 L580,110 L575,118 L570,125 L568,132 L572,138 L575,142 L570,148 L565,152 L558,148 L552,142 L545,138 L538,140 L532,145 L525,148 L518,145 L512,140 L505,138 L498,140 L492,142 L488,138 L485,132 L482,125 L480,118 L478,112 L480,105 Z'},
+    // Africa
+    {name:'Africa', path:'M490,162 L498,158 L508,155 L518,158 L528,162 L538,165 L548,168 L558,170 L568,172 L578,170 L588,168 L595,172 L600,178 L605,185 L608,195 L612,205 L615,215 L618,225 L620,235 L618,245 L615,255 L612,262 L610,272 L608,280 L605,290 L600,298 L595,308 L590,318 L585,325 L578,332 L572,338 L565,342 L558,345 L550,348 L542,345 L535,340 L528,335 L522,328 L518,320 L515,312 L512,302 L508,292 L505,282 L502,272 L498,262 L495,252 L492,242 L490,232 L488,222 L485,212 L482,202 L480,192 L482,180 L485,170 L490,162 Z'},
+    // Asia
+    {name:'Asia', path:'M598,72 L608,65 L620,58 L635,52 L650,48 L668,45 L685,42 L700,45 L718,48 L735,52 L750,48 L765,45 L780,48 L795,52 L808,48 L820,45 L835,48 L848,52 L858,58 L865,65 L870,72 L878,65 L885,58 L892,55 L898,58 L895,68 L890,78 L885,85 L878,92 L875,100 L878,108 L882,115 L888,120 L892,128 L888,135 L882,140 L878,148 L875,155 L870,162 L862,168 L855,172 L848,175 L840,178 L832,182 L825,185 L818,188 L810,192 L802,195 L795,198 L788,202 L780,198 L772,195 L765,198 L758,202 L750,205 L742,202 L735,198 L728,195 L720,198 L712,200 L705,195 L698,190 L690,188 L682,192 L675,195 L668,192 L660,188 L652,185 L645,180 L638,175 L632,170 L628,165 L622,158 L618,152 L612,148 L608,142 L605,135 L602,128 L598,120 L595,112 L592,105 L592,98 L595,88 L598,80 L598,72 Z'},
+    // Australia
+    {name:'Australia', path:'M842,310 L855,305 L868,308 L880,312 L892,318 L902,325 L912,332 L920,340 L925,348 L928,358 L925,365 L920,372 L912,375 L902,378 L892,375 L882,372 L872,375 L862,372 L852,368 L845,362 L840,355 L838,345 L835,338 L838,328 L840,318 L842,310 Z'},
+    // New Zealand
+    {name:'New Zealand', path:'M948,365 L952,358 L955,368 L952,378 L948,385 L945,378 L948,365 Z'},
+    // Greenland
+    {name:'Greenland', path:'M345,18 L360,15 L375,18 L388,22 L395,30 L398,40 L395,50 L388,58 L378,62 L368,58 L358,52 L350,45 L345,38 L342,28 L345,18 Z'},
+    // Indonesia/SE Asia islands
+    {name:'Indonesia', path:'M790,248 L800,245 L810,248 L820,252 L830,255 L840,258 L850,262 L860,265 L870,262 L880,265 L890,268 L895,272 L890,275 L880,278 L870,275 L860,272 L850,268 L840,265 L830,262 L820,258 L810,255 L800,252 L795,255 L790,252 L790,248 Z'},
+    // Japan
+    {name:'Japan', path:'M878,120 L882,115 L888,120 L892,128 L890,138 L886,145 L882,138 L880,130 L878,120 Z'},
+    // UK
+    {name:'UK', path:'M488,78 L492,75 L498,78 L498,88 L495,92 L490,90 L488,85 L488,78 Z'},
+    // Iceland
+    {name:'Iceland', path:'M430,52 L438,48 L445,52 L442,58 L435,58 L430,52 Z'},
+    // Madagascar
+    {name:'Madagascar', path:'M618,325 L622,318 L625,325 L628,335 L625,345 L620,348 L618,340 L618,325 Z'},
+    // Sri Lanka
+    {name:'Sri Lanka', path:'M720,225 L725,222 L728,228 L725,235 L720,232 L720,225 Z'},
+  ];
+
+  // Build SVG continent paths
+  const continentsSVG = continents.map(c =>
+    `<path class="continent" d="${c.path}"><title>${c.name}</title></path>`
+  ).join('');
+
+  // Build graticule grid lines
+  let graticule = '';
+  for(let lon=-180;lon<=180;lon+=30){
+    const x = (lon+180)/360*1000;
+    graticule += `<line class="graticule" x1="${x}" y1="0" x2="${x}" y2="500"/>`;
+  }
+  for(let lat=-90;lat<=90;lat+=30){
+    const y = (90-lat)/180*500;
+    graticule += `<line class="graticule" x1="0" y1="${y}" x2="1000" y2="${y}"/>`;
+  }
+  // Equator
+  graticule += `<line class="graticule" x1="0" y1="250" x2="1000" y2="250" style="stroke:rgba(37,48,84,.6);stroke-width:.5;stroke-dasharray:4 2"/>`;
+
+  // Build trade routes
+  const routesSVG = MAP_ROUTES.map(r => {
+    const dashClass = r.dash ? ' route-animated' : '';
+    const typeClass = r.type;
+    return `<path class="trade-route ${typeClass}${dashClass}" d="${r.path}" data-route="${r.id}">
+      <title>${r.name} — ${r.vol}</title>
+    </path>`;
+  }).join('');
+
+  // Animated ships along routes
+  const shipsSVG = MAP_ROUTES.filter(r=>!r.dash).map((r,i) => {
+    const colors = {container:'var(--cyan)',energy:'var(--orange)',goods:'var(--gold)',grain:'var(--green)',financial:'var(--gold)',military:'var(--purple)'};
+    const color = colors[r.type] || 'var(--t1)';
+    const delay = (i * 1.7).toFixed(1);
+    const dur = (12 + i * 1.3).toFixed(1);
+    return `<circle r="3" fill="${color}" opacity=".9" class="ship">
+      <animateMotion dur="${dur}s" repeatCount="indefinite" begin="${delay}s" rotate="auto">
+        <mpath href="#route-path-${r.id}"/>
+      </animateMotion>
+    </circle>`;
+  }).join('');
+
+  // Hidden paths for animateMotion references
+  const hiddenPaths = MAP_ROUTES.filter(r=>!r.dash).map(r =>
+    `<path id="route-path-${r.id}" d="${r.path}" fill="none" stroke="none"/>`
+  ).join('');
+
+  // Port dots
+  const portsSVG = MAP_PORTS.map(p => {
+    const colors = {container:'var(--cyan)',energy:'var(--orange)',financial:'var(--gold)',grain:'var(--green)',military:'var(--purple)'};
+    const color = colors[p.type] || 'var(--t2)';
+    return `<g class="port-group" data-port="${p.id}">
+      <circle class="port-dot" cx="${p.x}" cy="${p.y}" r="3" fill="${color}" stroke="${color}" stroke-width="1" opacity=".8"/>
+      <text class="port-label" x="${p.x+5}" y="${p.y-5}">${p.name}</text>
+    </g>`;
+  }).join('');
+
+  // Chokepoints
+  const chokesSVG = MAP_CHOKEPOINTS.map(c => {
+    return `<g class="chokepoint" data-choke="${c.id}">
+      <circle class="choke-pulse" cx="${c.x}" cy="${c.y}" r="7" fill="none" stroke="var(--red)" stroke-width="1"/>
+      <circle cx="${c.x}" cy="${c.y}" r="3" fill="var(--red)" opacity=".7"/>
+      <text class="choke-label" x="${c.x+8}" y="${c.y+2}">${c.name}</text>
+    </g>`;
+  }).join('');
+
+  // Legend items
+  const legendTypes = [
+    {label:'Container Shipping',color:'var(--cyan)'},
+    {label:'Energy / Oil',color:'var(--orange)'},
+    {label:'Financial / Goods',color:'var(--gold)'},
+    {label:'Grain / Food',color:'var(--green)'},
+    {label:'Military / Strategic',color:'var(--purple)'},
+    {label:'Chokepoint',color:'var(--red)'},
+  ];
+
+  // Route info cards
+  const routeCards = MAP_ROUTES.map(r => {
+    const typeColors = {container:'cyan',energy:'orange',goods:'gold',grain:'green',financial:'gold',military:'purple'};
+    const col = typeColors[r.type]||'t2';
+    return `<div class="map-info-card" data-route-card="${r.id}">
+      <h4><span style="width:10px;height:10px;border-radius:50%;background:var(--${col});display:inline-block"></span> ${r.name}</h4>
+      ${r.vol ? `<div class="stat" style="color:var(--${col})">${r.vol}</div>` : ''}
+      <p>${r.desc}</p>
+    </div>`;
+  }).join('');
+
+  // Chokepoint cards
+  const chokeCards = MAP_CHOKEPOINTS.map(c => {
+    const riskColors = {extreme:'red',critical:'red',high:'orange',moderate:'gold'};
+    const rc = riskColors[c.risk]||'gold';
+    return `<div class="choke-card">
+      <div class="choke-name">${c.name}</div>
+      <div class="choke-stat" style="color:var(--${rc})">${c.risk.toUpperCase()} RISK</div>
+      ${c.flow ? `<div class="choke-detail"><strong>${c.flow}</strong> of global trade</div>` : ''}
+      ${c.ships ? `<div class="choke-detail">${c.ships} vessels</div>` : ''}
+      <div class="choke-detail">${c.note}</div>
+    </div>`;
+  }).join('');
+
+  // Stats summary
+  const totalTradeRoutes = MAP_ROUTES.length;
+  const criticalChokes = MAP_CHOKEPOINTS.filter(c=>c.risk==='critical'||c.risk==='extreme').length;
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Global Trade Routes</h2><span class="badge badge-blue">LIVE MAP</span></div>
+
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--cyan)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        <strong style="color:var(--t1)">Dalio:</strong> "The world order is changing. Trade routes, supply chains, and capital flows are the arteries of empire." 90% of global trade moves by sea. Control of maritime chokepoints is control of the global economy. This map shows the routes ships travel, the ports that matter, and the chokepoints where a single disruption can cascade worldwide.
+      </div>
+    </div>
+
+    <!-- STATS ROW -->
+    <div class="map-stats">
+      <div class="map-stat-card">
+        <div class="label">Active Trade Routes</div>
+        <div class="value" style="color:var(--cyan)">${totalTradeRoutes}</div>
+        <div class="note">Major corridors tracked</div>
+      </div>
+      <div class="map-stat-card">
+        <div class="label">Critical Chokepoints</div>
+        <div class="value" style="color:var(--red)">${criticalChokes}</div>
+        <div class="note">Extreme / critical risk</div>
+      </div>
+      <div class="map-stat-card">
+        <div class="label">Global Sea Trade</div>
+        <div class="value" style="color:var(--gold)">$14T</div>
+        <div class="note">Annual maritime commerce</div>
+      </div>
+      <div class="map-stat-card">
+        <div class="label">By Sea</div>
+        <div class="value" style="color:var(--blue)">90%</div>
+        <div class="note">Of global goods move by ship</div>
+      </div>
+      <div class="map-stat-card">
+        <div class="label">Key Ports</div>
+        <div class="value" style="color:var(--green)">${MAP_PORTS.length}</div>
+        <div class="note">Strategic ports tracked</div>
+      </div>
+    </div>
+
+    <!-- SVG MAP -->
+    <div class="map-wrap" style="margin-top:16px">
+      <svg class="map-svg" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="portGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="var(--cyan)" stop-opacity=".3"/><stop offset="100%" stop-color="var(--cyan)" stop-opacity="0"/></radialGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          ${hiddenPaths}
+        </defs>
+
+        <!-- Ocean background -->
+        <rect class="ocean" width="1000" height="500"/>
+
+        <!-- Graticule grid -->
+        ${graticule}
+
+        <!-- Continents -->
+        ${continentsSVG}
+
+        <!-- Trade routes -->
+        <g filter="url(#glow)">
+          ${routesSVG}
+        </g>
+
+        <!-- Ships -->
+        ${shipsSVG}
+
+        <!-- Ports -->
+        ${portsSVG}
+
+        <!-- Chokepoints -->
+        ${chokesSVG}
+
+        <!-- Map labels -->
+        <text x="200" y="130" style="font-size:9px;fill:rgba(232,236,244,.15);font-weight:700;letter-spacing:3px">NORTH AMERICA</text>
+        <text x="290" y="330" style="font-size:8px;fill:rgba(232,236,244,.12);font-weight:700;letter-spacing:3px">SOUTH AMERICA</text>
+        <text x="520" y="95" style="font-size:7px;fill:rgba(232,236,244,.12);font-weight:700;letter-spacing:3px">EUROPE</text>
+        <text x="530" y="250" style="font-size:9px;fill:rgba(232,236,244,.12);font-weight:700;letter-spacing:3px">AFRICA</text>
+        <text x="720" y="100" style="font-size:9px;fill:rgba(232,236,244,.15);font-weight:700;letter-spacing:3px">ASIA</text>
+        <text x="870" y="355" style="font-size:7px;fill:rgba(232,236,244,.12);font-weight:700;letter-spacing:3px">AUSTRALIA</text>
+        <text x="400" y="270" style="font-size:8px;fill:rgba(232,236,244,.08);font-weight:700;letter-spacing:4px">ATLANTIC OCEAN</text>
+        <text x="130" y="280" style="font-size:8px;fill:rgba(232,236,244,.08);font-weight:700;letter-spacing:4px">PACIFIC OCEAN</text>
+        <text x="700" y="290" style="font-size:7px;fill:rgba(232,236,244,.08);font-weight:700;letter-spacing:4px">INDIAN OCEAN</text>
+      </svg>
+
+      <!-- Legend -->
+      <div class="map-legend">
+        ${legendTypes.map(l=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${l.color}"></div>${l.label}</div>`).join('')}
+        <div class="map-legend-item" style="margin-left:auto;color:var(--t3);font-size:10px">Dashed = emerging / strategic route</div>
+      </div>
+    </div>
+
+    <!-- CHOKEPOINTS SECTION -->
+    <div class="section-header" style="margin-top:28px"><h2>Strategic Chokepoints</h2><span class="badge badge-red">VULNERABILITY</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--red)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Chokepoints are narrow passages where trade routes converge. A blockade, conflict, or natural disaster at any one can spike commodity prices, disrupt supply chains, and trigger inflation globally. Houthi attacks on Bab el-Mandeb in 2024-25 demonstrated this — rerouting added $1M+ per ship and 10+ days to deliveries.
+      </div>
+    </div>
+    <div class="chokepoint-grid">
+      ${chokeCards}
+    </div>
+
+    <!-- TRADE ROUTES DETAIL -->
+    <div class="section-header" style="margin-top:28px"><h2>Major Trade Corridors</h2><span class="badge badge-blue">ROUTES</span></div>
+    <div class="map-info-panel">
+      ${routeCards}
+    </div>
+
+    <!-- KEY PORTS TABLE -->
+    <div class="section-header" style="margin-top:28px"><h2>Strategic Ports</h2><span class="badge badge-gold">GLOBAL NETWORK</span></div>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Port</th><th>Volume</th><th>Type</th><th>Strategic Note</th></tr></thead>
+        <tbody>
+          ${MAP_PORTS.slice().sort((a,b)=>a.rank-b.rank).filter(p=>p.rank>0).slice(0,15).map(p=>{
+            const typeColors = {container:'cyan',energy:'orange',financial:'gold',grain:'green',military:'purple'};
+            const tc = typeColors[p.type]||'t2';
+            return `<tr>
+              <td style="font-weight:600;color:var(--t1)">${p.name}</td>
+              <td style="font-family:'SF Mono',monospace;color:var(--${tc})">${p.vol}</td>
+              <td><span class="badge badge-${tc==='cyan'?'blue':tc==='orange'?'red':tc==='gold'?'gold':'green'}" style="font-size:9px;padding:2px 8px">${p.type.toUpperCase()}</span></td>
+              <td style="font-size:11px">${p.note}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DALIO CONTEXT -->
+    <div class="section-header" style="margin-top:28px"><h2>Why This Matters — Dalio Framework</h2><span class="badge badge-gold">CONTEXT</span></div>
+    <div class="grid grid-3">
+      <div class="card" style="border-top:3px solid var(--red)">
+        <div class="card-title">External Conflict Risk</div>
+        <div class="card-value" style="color:var(--red)">HIGH</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:8px;line-height:1.6">
+          The Taiwan Strait carries 50% of global container traffic. A Chinese blockade or US naval confrontation would be the single greatest supply chain disruption in history. Dalio rates great power conflict as a top-3 risk.
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--orange)">
+        <div class="card-title">Energy Vulnerability</div>
+        <div class="card-value" style="color:var(--orange)">CRITICAL</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:8px;line-height:1.6">
+          21% of global oil passes through the Strait of Hormuz. Iran can close it in hours. A 2-week closure would spike oil 300%+. China imports 70% of its oil by sea — a key US leverage point.
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--gold)">
+        <div class="card-title">De-Dollarization via Trade</div>
+        <div class="card-value" style="color:var(--gold)">ACCELERATING</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:8px;line-height:1.6">
+          BRICS nations are settling more trade in local currencies. China-Brazil, China-Saudi bilateral trade bypassing USD. New trade routes = new currency corridors. Dollar's 58.5% reserve share is its lowest ever.
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -3111,6 +3539,17 @@ function attachListeners(){
   });
   // Fetch news if on newsfeed tab
   if(STATE.tab === 'newsfeed') fetchNewsRSS();
+  // World map route hover highlight
+  document.querySelectorAll('[data-route]').forEach(el => {
+    el.onmouseenter = () => {
+      const card = document.querySelector(`[data-route-card="${el.dataset.route}"]`);
+      if(card) card.style.borderColor = 'rgba(6,182,212,.5)';
+    };
+    el.onmouseleave = () => {
+      const card = document.querySelector(`[data-route-card="${el.dataset.route}"]`);
+      if(card) card.style.borderColor = '';
+    };
+  });
 }
 
 // INIT
