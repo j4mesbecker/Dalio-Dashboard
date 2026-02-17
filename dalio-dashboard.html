@@ -192,7 +192,7 @@ input[type="number"]{-moz-appearance:textfield}
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <h1>DALIO COMMAND CENTER <span>v4.0</span></h1>
+  <h1>DALIO COMMAND CENTER <span>v5.0</span></h1>
   <div class="nav-tabs" id="navTabs"></div>
   <div class="clock" id="clock"></div>
 </div>
@@ -215,6 +215,8 @@ const STATE = {
   bugout: JSON.parse(localStorage.getItem('dcc_bugout') || '{}'),
   liveMarkets: null,
   liveMarketsTime: null,
+  treasuryDebt: null,
+  treasuryDebtTime: null,
 };
 
 function saveChecks(){ localStorage.setItem('dcc_checks', JSON.stringify(STATE.checks)); }
@@ -251,10 +253,140 @@ async function fetchLiveMarkets(){
 fetchLiveMarkets();
 setInterval(fetchLiveMarkets, 300000);
 
+// ========================
+// LIVE TREASURY DATA (US Fiscal Data API — no auth required)
+// ========================
+async function fetchTreasuryDebt(){
+  if(STATE.treasuryDebt && STATE.treasuryDebtTime && (Date.now()-STATE.treasuryDebtTime)<600000) return;
+  try{
+    const res = await fetch('https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?sort=-record_date&page[size]=5&fields=record_date,tot_pub_debt_out_amt,intragov_hold_amt,debt_held_public_amt');
+    const data = await res.json();
+    if(data.data && data.data.length){
+      const latest = data.data[0];
+      STATE.treasuryDebt = {
+        date: latest.record_date,
+        total: parseFloat(latest.tot_pub_debt_out_amt),
+        public: parseFloat(latest.debt_held_public_amt),
+        intragov: parseFloat(latest.intragov_hold_amt)
+      };
+      STATE.treasuryDebtTime = Date.now();
+      if(STATE.tab==='fiscal'||STATE.tab==='overview'||STATE.tab==='debtclock') render();
+    }
+  }catch(e){ /* silent fail — use static fallbacks */ }
+}
+fetchTreasuryDebt();
+setInterval(fetchTreasuryDebt, 600000);
+
+// ========================
+// DALIO'S 18 DETERMINANTS — POWER INDEX DATA
+// ========================
+const DETERMINANTS_18 = [
+  {id:'education',name:'Education',us2026:6.5,usPeak:9.5,china:7.5,desc:'Quality of education system, PISA scores, university rankings, STEM graduates per capita'},
+  {id:'innovation',name:'Innovation & Technology',us2026:8.5,usPeak:9.5,china:8.0,desc:'R&D spending, patents, AI leadership, tech company dominance'},
+  {id:'competitiveness',name:'Cost Competitiveness',us2026:5.5,usPeak:8.0,china:7.5,desc:'Unit labor costs, manufacturing efficiency, trade competitiveness'},
+  {id:'output',name:'Economic Output',us2026:7.0,usPeak:10.0,china:8.5,desc:'GDP, GDP per capita, productivity, economic dynamism'},
+  {id:'trade',name:'Share of World Trade',us2026:5.0,usPeak:9.0,china:9.0,desc:'Export market share, trade surplus/deficit, trade agreements'},
+  {id:'military',name:'Military Strength',us2026:9.0,usPeak:10.0,china:7.5,desc:'Defense spending, tech superiority, force projection, nuclear deterrent'},
+  {id:'financial',name:'Financial Center',us2026:7.5,usPeak:10.0,china:5.5,desc:'Capital market depth, banking system health, FDI flows'},
+  {id:'reserve',name:'Reserve Currency Status',us2026:6.0,usPeak:10.0,china:2.5,desc:'Share of global FX reserves, trade invoicing, SWIFT usage'},
+  {id:'debt_burden',name:'Debt Burden',us2026:3.0,usPeak:8.0,china:5.5,desc:'Debt/GDP ratio, deficit/GDP, debt service costs, fiscal space'},
+  {id:'internal_order',name:'Internal Order',us2026:4.5,usPeak:9.0,china:7.0,desc:'Political stability, rule of law, institutional trust, polarization level'},
+  {id:'wealth_gap',name:'Wealth/Opportunity/Values Gaps',us2026:3.0,usPeak:7.5,china:4.5,desc:'Gini coefficient, wealth top 1%, social mobility, values polarization'},
+  {id:'governance',name:'Governance / Rule of Law',us2026:5.5,usPeak:9.0,china:6.0,desc:'Institutional integrity, corruption index, judicial independence, regulatory quality'},
+  {id:'infrastructure',name:'Infrastructure & Investment',us2026:5.5,usPeak:9.0,china:8.5,desc:'Transport, energy grid, broadband, capital investment rate'},
+  {id:'character',name:'Character / Civility / Determination',us2026:5.0,usPeak:8.5,china:7.0,desc:'Work ethic, social cohesion, self-discipline, national resolve'},
+  {id:'resource_alloc',name:'Resource-Allocation Efficiency',us2026:6.0,usPeak:9.0,china:6.5,desc:'Capital allocation quality, market vs central planning efficiency, misallocation'},
+  {id:'geo_advantage',name:'Geography & Resources',us2026:8.5,usPeak:9.0,china:6.0,desc:'Natural resources, strategic location, energy independence, arable land'},
+  {id:'markets_depth',name:'Capital Markets Depth',us2026:8.0,usPeak:10.0,china:5.0,desc:'Stock market cap/GDP, bond market depth, derivatives, liquidity'},
+  {id:'currency_printing',name:'Currency Printing / Monetization',us2026:3.5,usPeak:8.0,china:5.0,desc:'Central bank balance sheet health, money supply growth, QE level, inflation risk'},
+];
+
+// ========================
+// INTERNAL CONFLICT INDICATORS
+// ========================
+const CONFLICT_INDICATORS = [
+  {name:'Wealth Gap (Top 1% Share)',value:32,threshold:30,unit:'%',status:'red',note:'Top 1% hold 32% of assets — above historical revolution threshold'},
+  {name:'Political Polarization Index',value:8.5,threshold:7,unit:'/10',status:'red',note:'DW-NOMINATE divergence at highest since 1870s Reconstruction'},
+  {name:'Institutional Trust',value:22,threshold:35,unit:'%',status:'red',note:'Trust in Congress at 22%. Below 35% = danger zone per Dalio'},
+  {name:'Income Inequality (Gini)',value:0.49,threshold:0.45,unit:'',status:'red',note:'US Gini 0.49 — above 0.45 historically precedes instability'},
+  {name:'Government Deficit/GDP',value:5.8,threshold:3.0,unit:'%',status:'red',note:'5.8% vs Dalio\'s 3% target. Structural, not cyclical'},
+  {name:'Debt/GDP Ratio',value:124,threshold:100,unit:'%',status:'red',note:'124% gross debt to GDP. Above WWII levels. No wartime justification'},
+  {name:'Interest/Revenue Ratio',value:18.6,threshold:15,unit:'%',status:'red',note:'18.6% of tax revenue goes to interest alone — crowding out spending'},
+  {name:'Foreign Treasury Holdings Trend',value:-3.2,threshold:0,unit:'%/yr',status:'gold',note:'Foreign central banks reducing Treasury holdings, shifting to gold'},
+  {name:'Protest/Unrest Frequency',value:7,threshold:5,unit:'/10',status:'red',note:'US ranked #3 globally for protest risk by Maplecroft. Nat Guard in 18+ cities'},
+  {name:'Media/Information Fragmentation',value:8,threshold:6,unit:'/10',status:'red',note:'Echo chambers. No shared reality. Prerequisite for civil conflict per historical pattern'},
+  {name:'Rule of Law Erosion',value:6.5,threshold:5,unit:'/10',status:'gold',note:'Executive overreach, judicial legitimacy questioned, selective enforcement'},
+  {name:'Social Mobility Decline',value:6,threshold:5,unit:'/10',status:'gold',note:'American Dream index declining for 40 years. Class ossification'},
+];
+
+// ========================
+// GLOBAL POWER COMPARISON DATA
+// ========================
+const GLOBAL_POWERS = [
+  {country:'United States',flag:'US',overall:0.72,trend:'down',scores:{education:6.5,innovation:8.5,competitiveness:5.5,output:7,trade:5,military:9,financial:7.5,reserve:6},strengths:'Military, innovation, capital markets',weaknesses:'Debt burden, polarization, wealth gap, declining education',risk:'Stage 5-6 transition. Debt spiral risk. Internal conflict.'},
+  {country:'China',flag:'CN',overall:0.62,trend:'up',scores:{education:7.5,innovation:8,competitiveness:7.5,output:8.5,trade:9,military:7.5,financial:5.5,reserve:2.5},strengths:'Manufacturing, trade, infrastructure, STEM education',weaknesses:'Property bubble, demographics, capital controls, no reserve currency',risk:'Deflation, aging population, Taiwan escalation.'},
+  {country:'India',flag:'IN',overall:0.38,trend:'up',scores:{education:4.5,innovation:5,competitiveness:7,output:5.5,trade:3.5,military:5.5,financial:3.5,reserve:1},strengths:'Demographics, IT services, cost competitiveness',weaknesses:'Infrastructure, corruption, education quality, weak institutions',risk:'Rising but fragile institutions. Religious tensions.'},
+  {country:'Japan',flag:'JP',overall:0.42,trend:'down',scores:{education:7,innovation:7,competitiveness:5,output:5,trade:4.5,military:4.5,financial:5,reserve:3},strengths:'Technology, education, social cohesion, large FX reserves',weaknesses:'Demographics, 215% debt/GDP, deflation mindset',risk:'Debt rollover at higher rates. Population collapse.'},
+  {country:'Germany',flag:'DE',overall:0.40,trend:'down',scores:{education:6.5,innovation:6.5,competitiveness:5.5,output:4.5,trade:6,military:3,financial:4,reserve:2},strengths:'Manufacturing, exports, engineering, education',weaknesses:'Energy dependence, military weakness, aging',risk:'Deindustrialization. Energy costs. EU fragmentation.'},
+  {country:'Russia',flag:'RU',overall:0.30,trend:'flat',scores:{education:5.5,innovation:4,competitiveness:5,output:3,trade:2.5,military:7,financial:1.5,reserve:1},strengths:'Nuclear weapons, energy resources, military',weaknesses:'Sanctions, brain drain, corruption, no economic diversification',risk:'Isolated but nuclear-armed. Wildcard in global order.'},
+];
+
+// ========================
+// DALIO'S 4 MARKET DRIVERS
+// ========================
+const MARKET_DRIVERS = {
+  growth: {
+    name:'Growth',current:'Slowing',level:4,max:10,color:'gold',
+    indicators:[
+      {name:'GDP Growth (Real)',value:'1.8%',trend:'down',note:'Below 2% trend. CBO projects 1.8% for 2026.'},
+      {name:'Employment Growth',value:'+145K/mo',trend:'down',note:'Slowing from +250K avg. Labor hoarding ending.'},
+      {name:'Productivity Growth',value:'+1.6%',trend:'flat',note:'AI could boost this. Key Dalio variable.'},
+      {name:'Consumer Spending',value:'+2.1%',trend:'down',note:'Excess savings depleted. Credit card delinquencies rising.'},
+      {name:'Business Investment',value:'-0.3%',trend:'down',note:'Tariff uncertainty suppressing capex.'},
+    ]
+  },
+  inflation: {
+    name:'Inflation',current:'Sticky',level:6,max:10,color:'red',
+    indicators:[
+      {name:'CPI (YoY)',value:'3.1%',trend:'up',note:'Re-accelerating. Tariffs adding 0.5-1% per Fed.'},
+      {name:'Core PCE',value:'2.8%',trend:'flat',note:'Fed target is 2%. Stubborn services inflation.'},
+      {name:'Wage Growth',value:'+3.8%',trend:'flat',note:'Above productivity. Inflationary if sustained.'},
+      {name:'Shelter Inflation',value:'+4.2%',trend:'down',note:'Lagging indicator. Should ease but slowly.'},
+      {name:'Import Prices',value:'+2.1%',trend:'up',note:'Tariffs pushing imported goods prices higher.'},
+    ]
+  },
+  riskPremium: {
+    name:'Risk Premium',current:'Compressed',level:3,max:10,color:'green',
+    indicators:[
+      {name:'Equity Risk Premium',value:'1.2%',trend:'down',note:'Near record lows. Stocks priced for perfection.'},
+      {name:'HY Credit Spread',value:'+310bp',trend:'flat',note:'Below average. Not pricing recession risk.'},
+      {name:'IG Credit Spread',value:'+95bp',trend:'flat',note:'Tight. Corporate bond market complacent.'},
+      {name:'VIX',value:'15.2',trend:'down',note:'Low. Dalio: complacency precedes shocks.'},
+      {name:'Term Premium (10Y)',value:'+45bp',trend:'up',note:'Rising. Market starting to price fiscal risk.'},
+    ]
+  },
+  discountRate: {
+    name:'Discount Rate',current:'Elevated',level:7,max:10,color:'blue',
+    indicators:[
+      {name:'Fed Funds Rate',value:'4.50%',trend:'flat',note:'Restrictive. Fed paused cuts on tariff inflation.'},
+      {name:'10Y Treasury Yield',value:'4.47%',trend:'up',note:'Key rate. Above 5% = Dalio warning zone.'},
+      {name:'30Y Mortgage Rate',value:'6.8%',trend:'up',note:'Housing affordability worst in 40 years.'},
+      {name:'Real Rate (10Y TIPS)',value:'+2.0%',trend:'up',note:'Positive real rates tighten conditions.'},
+      {name:'USD Liquidity (M2 YoY)',value:'+3.8%',trend:'up',note:'Expanding modestly. Monetization not yet aggressive.'},
+    ]
+  }
+};
+
 // TABS
 const TABS = [
   {id:'overview', label:'Overview'},
   {id:'threats', label:'Threat Assessment'},
+  {id:'fiscal', label:'Fiscal X-Ray'},
+  {id:'powerindex', label:'18 Determinants'},
+  {id:'conflict', label:'Conflict Gauge'},
+  {id:'globalpower', label:'Global Powers'},
+  {id:'drivers', label:'4 Market Drivers'},
+  {id:'sixstages', label:'Six Stages'},
   {id:'markets', label:'Live Markets'},
   {id:'scenarios', label:'Scenarios'},
   {id:'debtclock', label:'Debt Clock'},
@@ -383,6 +515,12 @@ function render(){
   switch(STATE.tab){
     case 'overview': app.innerHTML = renderOverview(); break;
     case 'threats': app.innerHTML = renderThreats(); break;
+    case 'fiscal': app.innerHTML = renderFiscal(); break;
+    case 'powerindex': app.innerHTML = renderPowerIndex(); break;
+    case 'conflict': app.innerHTML = renderConflict(); break;
+    case 'globalpower': app.innerHTML = renderGlobalPower(); break;
+    case 'drivers': app.innerHTML = renderDrivers(); break;
+    case 'sixstages': app.innerHTML = renderSixStages(); break;
     case 'markets': app.innerHTML = renderMarkets(); break;
     case 'scenarios': app.innerHTML = renderScenarios(); break;
     case 'debtclock': app.innerHTML = renderDebtClock(); break;
@@ -1254,6 +1392,456 @@ function renderJournal(){
 }
 
 // ========================
+// FISCAL X-RAY (Live Treasury Data + Dalio Thresholds)
+// ========================
+function renderFiscal(){
+  const td = STATE.treasuryDebt;
+  const totalDebt = td ? td.total : 38.5e12;
+  const publicDebt = td ? td.public : 28.9e12;
+  const intragovDebt = td ? td.intragov : 7.2e12;
+  const lastUpdate = td ? td.date : 'Loading...';
+  const gdp = 31.5e12; // CBO 2026 estimate
+  const debtToGDP = ((totalDebt/gdp)*100).toFixed(1);
+  const publicDebtToGDP = ((publicDebt/gdp)*100).toFixed(1);
+  const deficit = 1.9e12;
+  const deficitToGDP = ((deficit/gdp)*100).toFixed(1);
+  const interestAnnual = 1.0e12;
+  const interestToRev = 18.6;
+  const interestToGDP = ((interestAnnual/gdp)*100).toFixed(1);
+  const revenue = 5.6e12;
+  const spending = 7.4e12;
+  const spendToRevRatio = ((spending/revenue)*100).toFixed(0);
+  const maturityWall = 7.0e12; // 2025-2026 maturity wall
+
+  const fiscalMetrics = [
+    {label:'Total National Debt',value:'$'+(totalDebt/1e12).toFixed(2)+'T',dalioThreshold:'N/A',status:'red',note:'From US Treasury API. Updated: '+lastUpdate},
+    {label:'Debt / GDP (Gross)',value:debtToGDP+'%',dalioThreshold:'< 100%',status:'red',note:'Above WWII peak. No wartime justification.'},
+    {label:'Debt / GDP (Public)',value:publicDebtToGDP+'%',dalioThreshold:'< 80%',status:'red',note:'CBO: rising to 120% by 2036. Unsustainable.'},
+    {label:'Deficit / GDP',value:deficitToGDP+'%',dalioThreshold:'3.0%',status:'red',note:'Dalio: must reach 3% to avoid crisis. Currently ~2x target.'},
+    {label:'Interest Payments',value:'$'+(interestAnnual/1e12).toFixed(1)+'T/yr',dalioThreshold:'< 10% of revenue',status:'red',note:'Exceeds defense budget. $11B/week in FY2026.'},
+    {label:'Interest / Revenue',value:interestToRev+'%',dalioThreshold:'< 15%',status:'red',note:'Highest since 1991. Crowding out all other spending.'},
+    {label:'Interest / GDP',value:interestToGDP+'%',dalioThreshold:'< 2%',status:'red',note:'3.3% — eclipses 1991 record. Projected 4.6% by 2036.'},
+    {label:'Spending / Revenue',value:spendToRevRatio+'%',dalioThreshold:'< 110%',status:'red',note:'Spending 40% more than income. Chronic structural deficit.'},
+    {label:'Maturity Wall (2025-26)',value:'$'+(maturityWall/1e12).toFixed(1)+'T',dalioThreshold:'Manageable rollover',status:'red',note:'~30% of GDP must be refinanced. At higher rates.'},
+    {label:'Foreign Treasury Holdings',value:'Declining',dalioThreshold:'Stable/Growing',status:'gold',note:'Central banks shifting to gold. China actively reducing.'},
+    {label:'Federal Revenue',value:'$'+(revenue/1e12).toFixed(1)+'T',dalioThreshold:'> Spending',status:'gold',note:'17.5% of GDP. Tax revenue not keeping pace with spending.'},
+    {label:'Federal Spending',value:'$'+(spending/1e12).toFixed(1)+'T',dalioThreshold:'< Revenue',status:'red',note:'23.3% of GDP. Mandatory spending 70%+ of total.'},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Fiscal X-Ray</h2><span class="badge badge-red">DALIO DEBT CRISIS DASHBOARD</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--red)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        <strong style="color:var(--red)">Dalio's Warning:</strong> "We're spending 40% more than we're taking in, and this is a chronic problem." The US faces an "economic heart attack" if deficits aren't cut to 3% of GDP. Interest payments alone are $11B/week. The debt "death spiral" is when rising rates worsen credit risk, reducing demand for debt, forcing rates higher.<br><br>
+        <strong>Data Source:</strong> US Treasury Fiscal Data API (live) + CBO February 2026 projections. <span class="pulse" style="color:var(--green)">LIVE</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Dalio's "3% Solution" Gap</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--t2)">Current Deficit/GDP:</span>
+        <span style="font-size:24px;font-weight:800;color:var(--red)">${deficitToGDP}%</span>
+        <span style="font-size:13px;color:var(--t3)">vs Target:</span>
+        <span style="font-size:24px;font-weight:800;color:var(--green)">3.0%</span>
+        <span style="font-size:13px;color:var(--red);font-weight:600">Gap: ${(deficitToGDP-3.0).toFixed(1)}%</span>
+      </div>
+      <div style="height:32px;border-radius:8px;background:var(--bg1);position:relative;overflow:hidden;border:1px solid var(--border)">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(deficitToGDP/10*100,100)}%;background:linear-gradient(90deg,var(--green),var(--gold) 30%,var(--red) 60%);border-radius:7px"></div>
+        <div style="position:absolute;left:30%;top:0;height:100%;width:2px;background:var(--green);z-index:2"></div>
+        <div style="position:absolute;left:30%;top:-18px;font-size:9px;color:var(--green);transform:translateX(-50%)">3% TARGET</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Debt Trajectory Danger Zones</div>
+      <div style="display:flex;gap:4px;height:24px;border-radius:6px;overflow:hidden;margin-bottom:8px">
+        <div style="flex:3;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--bg0)">SAFE <60%</div>
+        <div style="flex:2;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--bg0)">WARNING 60-90%</div>
+        <div style="flex:2;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--bg0)">DANGER 90-120%</div>
+        <div style="flex:3;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--bg0)">CRISIS >120% ← US IS HERE</div>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead><tr><th>Metric</th><th>Current Value</th><th>Dalio Threshold</th><th>Status</th><th>Analysis</th></tr></thead>
+      <tbody>
+        ${fiscalMetrics.map(m=>`<tr>
+          <td style="font-weight:600;color:var(--t1)">${m.label}</td>
+          <td style="font-weight:700;font-family:'SF Mono',monospace;color:var(--${m.status})">${m.value}</td>
+          <td style="color:var(--green)">${m.dalioThreshold}</td>
+          <td><span class="badge badge-${m.status}" style="font-size:9px;padding:2px 8px">${m.status==='red'?'BREACHED':'WATCH'}</span></td>
+          <td style="font-size:12px">${m.note}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+
+    <div class="card" style="margin-top:16px;border-left:3px solid var(--gold)">
+      <div class="card-title">Dalio's "Death Spiral" Mechanism</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+        ${['Rising debt → Higher interest → Worse credit risk','→ Less demand for bonds → Higher yields','→ More borrowing to pay interest → More debt','→ Currency debasement → Inflation → Repeat'].map((step,i)=>
+          `<div style="flex:1;min-width:200px;padding:12px;background:var(--bg1);border-radius:8px;border-left:3px solid var(--${i===3?'red':'gold'});font-size:12px;color:var(--t2)">${step}</div>`
+        ).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// 18 DETERMINANTS POWER INDEX
+// ========================
+function renderPowerIndex(){
+  const usAvg = (DETERMINANTS_18.reduce((s,d)=>s+d.us2026,0)/DETERMINANTS_18.length).toFixed(1);
+  const usPeakAvg = (DETERMINANTS_18.reduce((s,d)=>s+d.usPeak,0)/DETERMINANTS_18.length).toFixed(1);
+  const chinaAvg = (DETERMINANTS_18.reduce((s,d)=>s+d.china,0)/DETERMINANTS_18.length).toFixed(1);
+  const usScore = (usAvg/10).toFixed(2);
+  const peakScore = (usPeakAvg/10).toFixed(2);
+  const chinaScore = (chinaAvg/10).toFixed(2);
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Dalio's 18 Determinants of Power</h2><span class="badge badge-gold">POWER INDEX</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Dalio: "The overall country power score is created by weighing the outputs of 18 gauges, each derived as a composite of several stats." The Empire Score ranges from 0 to 1 — where 1 is "firing on all cylinders." <strong>Education falls first.</strong> It is the leading indicator of decline.
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-bottom:20px">
+      <div class="card" style="text-align:center">
+        <div class="card-title">US (2026)</div>
+        <div class="card-value" style="color:var(--red)">${usScore}</div>
+        <div class="card-sub">Empire Score (Avg: ${usAvg}/10)</div>
+        <div style="margin-top:8px;height:8px;border-radius:4px;background:var(--bg1)"><div style="height:100%;width:${usScore*100}%;background:var(--red);border-radius:4px"></div></div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">US (1950 Peak)</div>
+        <div class="card-value" style="color:var(--green)">${peakScore}</div>
+        <div class="card-sub">Empire Score (Avg: ${usPeakAvg}/10)</div>
+        <div style="margin-top:8px;height:8px;border-radius:4px;background:var(--bg1)"><div style="height:100%;width:${peakScore*100}%;background:var(--green);border-radius:4px"></div></div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">China (2026)</div>
+        <div class="card-value" style="color:var(--cyan)">${chinaScore}</div>
+        <div class="card-sub">Empire Score (Avg: ${chinaAvg}/10)</div>
+        <div style="margin-top:8px;height:8px;border-radius:4px;background:var(--bg1)"><div style="height:100%;width:${chinaScore*100}%;background:var(--cyan);border-radius:4px"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">All 18 Determinants — Detailed Breakdown</div>
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Determinant</th><th>US 2026</th><th>US Peak</th><th>China 2026</th><th>Decline</th><th>Visual</th><th>Description</th></tr></thead>
+        <tbody>
+          ${DETERMINANTS_18.map((d,i)=>{
+            const decline = (d.usPeak - d.us2026).toFixed(1);
+            const barW = (d.us2026/10*100);
+            const barPeak = (d.usPeak/10*100);
+            const barChina = (d.china/10*100);
+            const color = d.us2026 >= 7 ? 'green' : d.us2026 >= 5 ? 'gold' : 'red';
+            return `<tr>
+              <td style="color:var(--t3);font-size:11px">${i+1}</td>
+              <td style="font-weight:600;color:var(--t1)">${d.name}</td>
+              <td style="font-weight:700;color:var(--${color});font-family:'SF Mono',monospace">${d.us2026}</td>
+              <td style="color:var(--green);font-family:'SF Mono',monospace">${d.usPeak}</td>
+              <td style="color:var(--cyan);font-family:'SF Mono',monospace">${d.china}</td>
+              <td style="color:var(--red);font-weight:600">-${decline}</td>
+              <td style="min-width:120px">
+                <div style="position:relative;height:16px">
+                  <div style="position:absolute;top:0;left:0;height:6px;width:${barPeak}%;background:var(--green);border-radius:3px;opacity:.3"></div>
+                  <div style="position:absolute;top:0;left:0;height:6px;width:${barW}%;background:var(--${color});border-radius:3px"></div>
+                  <div style="position:absolute;top:8px;left:0;height:6px;width:${barChina}%;background:var(--cyan);border-radius:3px;opacity:.6"></div>
+                </div>
+              </td>
+              <td style="font-size:11px;color:var(--t3)">${d.desc}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div style="display:flex;gap:16px;margin-top:12px;font-size:11px">
+        <span style="color:var(--green)">Green bar = US Peak</span>
+        <span style="color:var(--gold)">Color bar = US 2026</span>
+        <span style="color:var(--cyan)">Blue bar = China 2026</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// INTERNAL CONFLICT GAUGE
+// ========================
+function renderConflict(){
+  const breached = CONFLICT_INDICATORS.filter(c=>c.status==='red').length;
+  const total = CONFLICT_INDICATORS.length;
+  const pctBreached = ((breached/total)*100).toFixed(0);
+  const civilWarProb = 35; // Dalio's ~35% estimate (he said "uncomfortably more than 50%" for some form of civil conflict — adjusted for actual civil war)
+  const conflictProb = 55; // "some form" of civil conflict
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Internal Conflict Gauge</h2><span class="badge badge-red">CIVIL WAR PROBABILITY</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--red)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        <strong style="color:var(--red)">Dalio (Feb 2026):</strong> "In my parlance, we are in the Stage 6 part of the Big Cycle in which there is great disorder arising from being in a period in which there are no rules, might is right, and there is a clash of great powers." He puts the odds of "some form of civil war" at <strong>"uncomfortably more than 50%"</strong>.<br><br>
+        From studying 50+ civil wars and revolutions, the <strong>single most reliable leading indicator</strong> is bankrupt government finances combined with big wealth gaps and a severe economic shock.
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-bottom:20px">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Indicators Breached</div>
+        <div class="card-value" style="color:var(--red)">${breached}/${total}</div>
+        <div class="card-sub">${pctBreached}% of warning thresholds exceeded</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Civil Conflict Probability</div>
+        <div class="card-value" style="color:var(--red)">${conflictProb}%</div>
+        <div class="card-sub">Dalio: "uncomfortably more than 50%"</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Current Big Cycle Stage</div>
+        <div class="card-value" style="color:var(--red)">Stage 6</div>
+        <div class="card-sub">Munich Security Conference confirmed: order "under destruction"</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Composite Threat Meter</div>
+      <div style="height:40px;border-radius:8px;background:var(--bg1);position:relative;overflow:hidden;border:1px solid var(--border);margin-bottom:8px">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${conflictProb}%;background:linear-gradient(90deg,var(--gold),var(--red));border-radius:7px;transition:width 1s"></div>
+        <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.7)">${conflictProb}% — ELEVATED RISK</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3)">
+        <span>0% — Stable Order</span><span>25% — Tensions</span><span>50% — Pre-Conflict</span><span>75% — Active Conflict</span><span>100% — Civil War</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">12 Leading Indicators — Detailed Status</div>
+      <table class="data-table">
+        <thead><tr><th>Indicator</th><th>Current</th><th>Threshold</th><th>Status</th><th>Analysis</th></tr></thead>
+        <tbody>
+          ${CONFLICT_INDICATORS.map(c=>{
+            const statusColor = c.status==='red'?'red':'gold';
+            return `<tr>
+              <td style="font-weight:600;color:var(--t1)">${c.name}</td>
+              <td style="font-weight:700;font-family:'SF Mono',monospace;color:var(--${statusColor})">${c.value}${c.unit}</td>
+              <td style="color:var(--green)">${c.threshold}${c.unit}</td>
+              <td><span class="badge badge-${statusColor}" style="font-size:9px;padding:2px 8px">${c.status==='red'?'BREACHED':'WATCH'}</span></td>
+              <td style="font-size:12px">${c.note}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px;border-left:3px solid var(--gold)">
+      <div class="card-title">Dalio's "Toxic Mix" — The Three Ingredients</div>
+      <div class="grid grid-3" style="margin-top:8px">
+        <div style="padding:16px;background:var(--bg1);border-radius:8px;border-top:3px solid var(--red)">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">1. BAD FINANCES</div>
+          <div style="font-size:12px;color:var(--t2)">$38.5T debt, 7.5% deficit/GDP, $1T interest. Government bankrupt in all but name. CHECK.</div>
+        </div>
+        <div style="padding:16px;background:var(--bg1);border-radius:8px;border-top:3px solid var(--red)">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">2. LARGE GAPS</div>
+          <div style="font-size:12px;color:var(--t2)">Top 1% own 32%. Gini at 0.49. Values polarization at historic highs. No shared reality. CHECK.</div>
+        </div>
+        <div style="padding:16px;background:var(--bg1);border-radius:8px;border-top:3px solid var(--gold)">
+          <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">3. SEVERE SHOCK</div>
+          <div style="font-size:12px;color:var(--t2)">Not yet triggered. Could be: bond market revolt, tariff recession, geopolitical event, AI displacement wave. WATCH.</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// GLOBAL POWER COMPARISON
+// ========================
+function renderGlobalPower(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Global Power Comparison</h2><span class="badge badge-blue">DALIO POWER INDEX</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--blue)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Dalio's Power Index examines 24 nations across 18 determinants (key 8 shown below). The US is #1 but declining. China is #2 and rising. The crossover point — when the rising power surpasses the declining one — is historically the most dangerous period. We are approaching it.
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-bottom:20px">
+      ${GLOBAL_POWERS.slice(0,6).map(p=>{
+        const trendIcon = p.trend==='up'?'Rising':'down'?'Declining':'Flat';
+        const trendColor = p.trend==='up'?'green':p.trend==='down'?'red':'gold';
+        return `<div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div>
+              <div class="card-title">${p.country}</div>
+              <div class="card-value" style="color:var(--${trendColor})">${p.overall.toFixed(2)}</div>
+            </div>
+            <div style="font-size:11px;color:var(--${trendColor});font-weight:600">${p.trend.toUpperCase()}</div>
+          </div>
+          <div style="height:8px;border-radius:4px;background:var(--bg1);margin-bottom:12px"><div style="height:100%;width:${p.overall*100}%;background:var(--${trendColor});border-radius:4px"></div></div>
+          ${Object.entries(p.scores).map(([k,v])=>{
+            const color = v>=7?'green':v>=5?'gold':'red';
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="width:110px;font-size:11px;color:var(--t3)">${k.charAt(0).toUpperCase()+k.slice(1)}</span>
+              <div style="flex:1;height:6px;border-radius:3px;background:var(--bg1)"><div style="height:100%;width:${v*10}%;background:var(--${color});border-radius:3px"></div></div>
+              <span style="font-size:11px;font-weight:600;color:var(--${color});width:20px;text-align:right">${v}</span>
+            </div>`;
+          }).join('')}
+          <div style="margin-top:8px;font-size:11px;color:var(--t3);line-height:1.5"><strong style="color:var(--green)">+</strong> ${p.strengths}<br><strong style="color:var(--red)">-</strong> ${p.weaknesses}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Power Score Comparison — Key 8 Determinants</div>
+      <table class="data-table">
+        <thead><tr><th>Country</th><th>Overall</th><th>Edu</th><th>Innov</th><th>Comp</th><th>Output</th><th>Trade</th><th>Military</th><th>Finance</th><th>Reserve</th><th>Trend</th><th>Key Risk</th></tr></thead>
+        <tbody>
+          ${GLOBAL_POWERS.map(p=>{
+            const tc = p.trend==='up'?'green':p.trend==='down'?'red':'gold';
+            return `<tr>
+              <td style="font-weight:600;color:var(--t1)">${p.country}</td>
+              <td style="font-weight:700;color:var(--${tc})">${p.overall.toFixed(2)}</td>
+              ${Object.values(p.scores).map(v=>{const c=v>=7?'green':v>=5?'gold':'red';return `<td style="color:var(--${c});font-family:'SF Mono',monospace">${v}</td>`;}).join('')}
+              <td><span class="badge badge-${tc}" style="font-size:9px;padding:2px 8px">${p.trend.toUpperCase()}</span></td>
+              <td style="font-size:11px">${p.risk}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ========================
+// 4 MARKET DRIVERS (Growth, Inflation, Risk Premium, Discount Rate)
+// ========================
+function renderDrivers(){
+  const drivers = Object.values(MARKET_DRIVERS);
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Dalio's 4 Market Drivers</h2><span class="badge badge-gold">WHAT MOVES ALL MARKETS</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Dalio: "All markets are driven by four determinants: <strong>growth, inflation, risk premiums, and discount rates</strong>." Understanding where each stands tells you what assets will perform. When growth slows + inflation rises + risk premiums are compressed + rates are high = the worst environment for traditional portfolios.
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:20px">
+      ${drivers.map(d=>`<div class="card" style="border-top:3px solid var(--${d.color})">
+        <div class="card-title">${d.name}</div>
+        <div class="card-value" style="color:var(--${d.color})">${d.current}</div>
+        <div class="card-sub">${d.level}/${d.max}</div>
+        <div style="display:flex;gap:3px;margin-top:8px">
+          ${Array.from({length:d.max},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<d.level?'var(--'+d.color+')':'var(--bg1)'};border:1px solid var(--border)"></div>`).join('')}
+        </div>
+      </div>`).join('')}
+    </div>
+
+    ${drivers.map(d=>`<div class="card" style="margin-bottom:16px">
+      <div class="card-title" style="color:var(--${d.color})">${d.name} — ${d.current} (${d.level}/${d.max})</div>
+      <table class="data-table">
+        <thead><tr><th>Indicator</th><th>Value</th><th>Trend</th><th>Dalio Analysis</th></tr></thead>
+        <tbody>
+          ${d.indicators.map(ind=>{
+            const trendColor = ind.trend==='up'?'red':ind.trend==='down'?'green':'gold';
+            const trendIcon = ind.trend==='up'?'UP':ind.trend==='down'?'DOWN':'FLAT';
+            return `<tr>
+              <td style="font-weight:600;color:var(--t1)">${ind.name}</td>
+              <td style="font-weight:700;font-family:'SF Mono',monospace">${ind.value}</td>
+              <td><span class="badge badge-${trendColor}" style="font-size:9px;padding:2px 8px">${trendIcon}</span></td>
+              <td style="font-size:12px">${ind.note}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('')}
+
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="card-title">Current Regime Assessment</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        <strong>Right Now:</strong> Slowing growth + sticky inflation + compressed risk premiums + elevated rates = <strong style="color:var(--red)">STAGFLATIONARY RISK</strong>.<br><br>
+        <strong>What This Means:</strong> Traditional 60/40 portfolios get hit from both sides. Bonds lose to inflation, stocks lose to slowing growth and high rates. Dalio's answer: <strong>diversify across uncorrelated return streams</strong> — gold, TIPS, international equities, and real assets outperform in this environment.<br><br>
+        <strong>What to Watch:</strong> If growth falls below 1% while inflation stays above 3%, the Fed faces an impossible choice: cut rates (more inflation) or hold rates (recession). This is Dalio's "beautiful deleveraging" — or the uglier alternative.
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// SIX STAGES OF THE BIG CYCLE
+// ========================
+function renderSixStages(){
+  const stages = [
+    {num:1,name:'New Order',period:'Post-War Establishment',years:'1945-1950',status:'past',
+     desc:'A new world order is established after a major conflict. New rules, institutions, and power structures emerge. The winner writes the rules.',
+     usExample:'Bretton Woods (1944), UN founded, Marshall Plan, US dollar becomes world reserve currency. America writes the rules of the new order.',
+     indicators:'New constitution/treaties, new institutions, clear hegemon, low debt, high social cohesion'},
+    {num:2,name:'Building & Stabilization',period:'Early Prosperity',years:'1950-1965',status:'past',
+     desc:'The new order consolidates. Education improves, infrastructure is built, institutions strengthen. Strong leadership emerges.',
+     usExample:'Interstate highway system, GI Bill education boom, NASA, suburban expansion. Strong middle class forms. US at peak cohesion.',
+     indicators:'Rising education scores, infrastructure investment, growing middle class, low inequality, strong institutions'},
+    {num:3,name:'Peace & Prosperity',period:'Golden Age',years:'1965-1980',status:'past',
+     desc:'The empire enjoys its peak. Innovation flourishes, living standards rise, the currency is trusted globally. Excess begins.',
+     usExample:'Moon landing, tech revolution begins, global trade dominance. But Vietnam War costs, Nixon ends gold standard (1971), inflation rises.',
+     indicators:'Peak innovation, highest living standards, reserve currency dominance, beginning of financial excess'},
+    {num:4,name:'Excess & Overextension',period:'Bubble Phase',years:'1980-2008',status:'past',
+     desc:'Prosperity breeds excess. Debt rises, speculation increases, wealth gaps widen, the country overextends militarily and financially.',
+     usExample:'Reaganomics, dot-com bubble, Iraq/Afghanistan wars, housing bubble, 2008 financial crisis. Debt explosion begins. Manufacturing offshored.',
+     indicators:'Rising debt/GDP, growing inequality, asset bubbles, military overextension, declining manufacturing'},
+    {num:5,name:'Financial Crisis & Conflict',period:'Pre-Breakdown',years:'2008-2025',status:'past',
+     desc:'Bad financial conditions meet large wealth gaps. Populism rises. Internal and external conflicts intensify. Trust in institutions collapses.',
+     usExample:'QE/money printing, Trump/populism, COVID response ($5T), BLM, Jan 6, polarization peaks. Debt spirals. China challenges.',
+     indicators:'Money printing, populism, extreme polarization, institutional distrust, rising geopolitical tension'},
+    {num:6,name:'Civil War / Revolution',period:'Disorder & Restructuring',years:'2025-???',status:'current',
+     desc:'The old order breaks down. Rules stop being followed. "Might makes right." Internal conflict (civil war) and/or external conflict (between great powers) restructures the order.',
+     usExample:'Munich Security Conference declares rules-based order "under destruction." Executive overreach, states\' rights conflicts, Nat Guard deployments, debt crisis accelerating.',
+     indicators:'Rules ignored, political violence, capital flight, currency debasement, "law of the jungle" geopolitics'},
+  ];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Dalio's Six Stages of the Big Cycle</h2><span class="badge badge-red">WE ARE IN STAGE 6</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--red)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        <strong style="color:var(--red)">Feb 13-15, 2026 — Munich Security Conference:</strong> Nearly 50 heads of state declared the rules-based international framework "no longer functional." The conference document was titled <em>"Under Destruction."</em> Dalio: "In my parlance, we are in Stage 6."<br><br>
+        Every empire goes through these six stages. The cycle takes 75-150 years. The American cycle began in 1945.  It is now 81 years old.
+      </div>
+    </div>
+
+    <div style="position:relative;margin-bottom:20px">
+      <div style="display:flex;gap:4px;height:48px;border-radius:8px;overflow:hidden">
+        ${stages.map(s=>{
+          const color = s.status==='current'?'red':s.status==='past'?'bg3':'bg1';
+          const border = s.status==='current'?'2px solid var(--red)':'none';
+          return `<div style="flex:1;background:var(--${color});display:flex;flex-direction:column;align-items:center;justify-content:center;border:${border};border-radius:4px;${s.status==='current'?'box-shadow:0 0 20px rgba(246,70,93,.3);animation:pulse 2s infinite':''}">
+            <div style="font-size:16px;font-weight:800;color:${s.status==='current'?'var(--red)':'var(--t3)'}">${s.num}</div>
+            <div style="font-size:8px;color:${s.status==='current'?'var(--t1)':'var(--t3)'};text-align:center">${s.name}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="timeline">
+      ${stages.map(s=>`<div class="tl-item ${s.status}">
+        <div class="tl-date">Stage ${s.num}: ${s.name} — ${s.period} (${s.years})</div>
+        <div class="tl-title">${s.desc}</div>
+        <div style="margin-top:8px;padding:10px;background:var(--bg1);border-radius:6px">
+          <div style="font-size:11px;font-weight:600;color:var(--gold);margin-bottom:4px">US EXAMPLE:</div>
+          <div class="tl-desc">${s.usExample}</div>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--t3)"><strong>Key Indicators:</strong> ${s.indicators}</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="card-title">What Comes After Stage 6?</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Stage 6 ends in one of two ways: <strong>1) A new domestic order</strong> (peaceful restructuring — rare but possible) or <strong>2) Revolution/civil war</strong> followed by a return to Stage 1. The new order is typically written by whoever wins. The cycle has repeated for the Dutch (1600s), British (1800s), and now potentially the Americans. The question isn't <em>if</em> the cycle turns — it always does. The question is <strong>how violently</strong>.
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
 // DEBT CLOCK
 // ========================
 function renderDebtClock(){
@@ -1768,7 +2356,7 @@ function attachListeners(){
       const backup = {};
       dataKeys.forEach(k => { const v = localStorage.getItem(k); if(v) backup[k] = JSON.parse(v); });
       backup._exportDate = new Date().toISOString();
-      backup._version = '4.0';
+      backup._version = '5.0';
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
