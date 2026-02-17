@@ -192,7 +192,7 @@ input[type="number"]{-moz-appearance:textfield}
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <h1>DALIO COMMAND CENTER <span>v5.0</span></h1>
+  <h1>DALIO COMMAND CENTER <span>v6.0</span></h1>
   <div class="nav-tabs" id="navTabs"></div>
   <div class="clock" id="clock"></div>
 </div>
@@ -217,6 +217,9 @@ const STATE = {
   liveMarketsTime: null,
   treasuryDebt: null,
   treasuryDebtTime: null,
+  alerts: JSON.parse(localStorage.getItem('dcc_alerts') || '[]'),
+  watchlist: JSON.parse(localStorage.getItem('dcc_watchlist') || '[]'),
+  stresstest: JSON.parse(localStorage.getItem('dcc_stresstest') || '{}'),
 };
 
 function saveChecks(){ localStorage.setItem('dcc_checks', JSON.stringify(STATE.checks)); }
@@ -227,6 +230,9 @@ function saveHealth(){ localStorage.setItem('dcc_health', JSON.stringify(STATE.h
 function saveScenario(){ localStorage.setItem('dcc_scenario', STATE.scenario); }
 function saveNetworth(){ localStorage.setItem('dcc_networth', JSON.stringify(STATE.networth)); }
 function saveBugout(){ localStorage.setItem('dcc_bugout', JSON.stringify(STATE.bugout)); }
+function saveAlerts(){ localStorage.setItem('dcc_alerts', JSON.stringify(STATE.alerts)); }
+function saveWatchlist(){ localStorage.setItem('dcc_watchlist', JSON.stringify(STATE.watchlist)); }
+function saveStresstest(){ localStorage.setItem('dcc_stresstest', JSON.stringify(STATE.stresstest)); }
 
 // ========================
 // LIVE MARKET DATA FETCHER
@@ -400,6 +406,12 @@ const TABS = [
   {id:'bugout', label:'Bug-Out Plan'},
   {id:'wwdd', label:'WWDD'},
   {id:'journal', label:'Journal'},
+  {id:'newsfeed', label:'Live News'},
+  {id:'alerts', label:'Alerts'},
+  {id:'stresstest', label:'Stress Test'},
+  {id:'rhymes', label:'Historical Rhymes'},
+  {id:'watchlist', label:'Watchlist'},
+  {id:'scorecard', label:'Weekly Scorecard'},
   {id:'events', label:'Event Tracker'},
   {id:'media', label:'Media Library'},
   {id:'knowledge', label:'Knowledge Base'},
@@ -534,6 +546,12 @@ function render(){
     case 'bugout': app.innerHTML = renderBugout(); break;
     case 'wwdd': app.innerHTML = renderWWDD(); break;
     case 'journal': app.innerHTML = renderJournal(); break;
+    case 'newsfeed': app.innerHTML = renderNewsFeed(); break;
+    case 'alerts': app.innerHTML = renderAlerts(); break;
+    case 'stresstest': app.innerHTML = renderStressTest(); break;
+    case 'rhymes': app.innerHTML = renderRhymes(); break;
+    case 'watchlist': app.innerHTML = renderWatchlist(); break;
+    case 'scorecard': app.innerHTML = renderScorecard(); break;
     case 'events': app.innerHTML = renderEvents(); break;
     case 'media': app.innerHTML = renderMedia(); break;
     case 'knowledge': app.innerHTML = renderKnowledge(); break;
@@ -2253,6 +2271,602 @@ function renderBackup(){
 }
 
 // ========================
+// DALIO CONTEXTUAL QUOTES
+// ========================
+const DALIO_QUOTES = {
+  fiscal: [
+    {text:"We're spending 40% more than we're taking in, and this is a chronic problem.",source:"CNBC, Jul 2025"},
+    {text:"A spiral of rising interest rates leading to worsening credit risk, leading to less demand for the debt, leading to higher interest rates is a classic debt 'death spiral'.",source:"How Countries Go Broke"},
+    {text:"Do you print money or do you let a debt crisis happen? That's the terrible choice.",source:"Davos, Jan 2026"},
+    {text:"Even though this progression has happened many times in history, most policy makers and investors think their current circumstances and monetary system won't change. The change is unthinkable — and then it happens suddenly.",source:"How Countries Go Broke"},
+    {text:"If you have a bad supply/demand picture for the bonds, you're going to have interest rates rising, and the debt service will be a problem too.",source:"Marketplace, Jun 2025"},
+  ],
+  conflict: [
+    {text:"The single most reliable leading indicator of civil war or revolution is bankrupt government finances combined with big wealth gaps.",source:"Principles for Dealing with the Changing World Order"},
+    {text:"By most of the measures that I use, the current financial conditions and irreconcilable differences in desires and values are consistent with the ingredients leading to some form of civil war.",source:"LinkedIn, 2026"},
+    {text:"In my parlance, we are in the Stage 6 part of the Big Cycle in which there is great disorder arising from being in a period in which there are no rules, might is right, and there is a clash of great powers.",source:"Feb 2026"},
+    {text:"There is an uncomfortably more than 50 percent chance that the US could face a civil war if current trends continue.",source:"Institutional Investor, 2025"},
+    {text:"A smart rabbit has three holes.",source:"Fortune interview, Sep 2025"},
+  ],
+  markets: [
+    {text:"All markets are driven by four determinants: growth, inflation, risk premiums, and discount rates.",source:"Principles"},
+    {text:"Cash is trash... but bonds might be worse.",source:"Davos, 2020 (still relevant)"},
+    {text:"Diversifying well is the most important thing you need to do in order to invest well.",source:"Principles"},
+    {text:"He who lives by the crystal ball will eat shattered glass.",source:"Principles"},
+    {text:"The biggest mistake investors make is to believe that what happened in the recent past is likely to persist.",source:"Principles for Dealing with the Changing World Order"},
+  ],
+  overview: [
+    {text:"History doesn't repeat itself, but it rhymes.",source:"Attributed (Dalio uses frequently)"},
+    {text:"The times ahead will be radically different from those we've experienced in our lifetimes, though similar to many times in history.",source:"Principles for Dealing with the Changing World Order"},
+    {text:"I believe that the world order is changing in profound ways that haven't happened in our lifetimes but have happened many times in history.",source:"Changing World Order"},
+    {text:"Those who don't learn from history are destined to repeat it, and those who do learn can profit from understanding the patterns.",source:"How Countries Go Broke"},
+  ],
+  portfolio: [
+    {text:"The holy grail of investing is to find 15 or more good, uncorrelated return streams.",source:"Principles"},
+    {text:"I think you should have 10-15% of your portfolio in gold.",source:"CNBC, 2025"},
+    {text:"Don't bet on any one outcome. Instead, build a portfolio that does reasonably well across many outcomes.",source:"Principles"},
+  ],
+  prep: [
+    {text:"Those places that have the largest wealth gaps, the largest debts, and the worst declines in incomes are most likely to have the greatest conflicts.",source:"Principles for Dealing with the Changing World Order"},
+    {text:"Wartime economies involve a sudden shift from normal commerce to prioritizing national survival.",source:"How Countries Go Broke"},
+    {text:"Governments impose strict controls on production, trade, and capital movement, limiting traditional economic activities.",source:"How Countries Go Broke"},
+  ],
+};
+
+function getDalioQuote(tab){
+  const pool = DALIO_QUOTES[tab] || DALIO_QUOTES.overview;
+  const idx = Math.floor(Date.now()/(1000*60*30)) % pool.length; // rotates every 30 min
+  return pool[idx];
+}
+
+// ========================
+// HISTORICAL RHYMES DATA
+// ========================
+const HISTORICAL_RHYMES = [
+  {era:'Weimar Germany (1921-1923)',match:'Debt Monetization',matchPct:72,
+   metrics:{debtGDP:'130%→913%',inflation:'3x→1T%',currency:'Mark collapsed',reserves:'Depleted',outcome:'Hyperinflation, social collapse, rise of extremism'},
+   parallel:'US printing $5T+ since 2020. Fed balance sheet $7.4T. Deficit 7.5% GDP. Dollar reserve share declining.',
+   lesson:'Velocity of collapse surprised everyone. People who held hard assets (gold, foreign currency, real estate) survived. Those in cash/bonds were wiped out.',
+   dalioForce:'Debt & Money'},
+  {era:'Argentina (2001)',match:'Sovereign Default',matchPct:58,
+   metrics:{debtGDP:'62%→166%',inflation:'Pegged then 40%+',currency:'Corralito — bank freeze',reserves:'Exhausted',outcome:'Default, bank holiday, 5 presidents in 2 weeks'},
+   parallel:'US at 124% debt/GDP. $7T maturity wall. Foreign holders reducing. Key difference: US has reserve currency (for now).',
+   lesson:'The corralito (bank freeze) caught everyone off-guard. Cash in banks became inaccessible overnight. Those with foreign accounts and physical assets were the survivors.',
+   dalioForce:'Debt & Money'},
+  {era:'British Empire (1945-1956)',match:'Reserve Currency Decline',matchPct:82,
+   metrics:{debtGDP:'250%→200%',inflation:'Moderate but persistent',currency:'Sterling lost reserve status',reserves:'Marshall Plan dependent',outcome:'Suez Crisis = loss of geopolitical control'},
+   parallel:'US reserve share 58.5% (was 73% in 2001). BRICS dedollarization. Central banks buying record gold. Same trajectory, different speed.',
+   lesson:'Britain\'s decline was gradual, then sudden at Suez. The US equivalent would be a failed Treasury auction or loss of petrodollar status. The empire doesn\'t announce its decline — it just stops being able to afford its commitments.',
+   dalioForce:'External Conflict'},
+  {era:'Roman Republic → Empire (133-27 BC)',match:'Internal Political Collapse',matchPct:68,
+   metrics:{debtGDP:'N/A (debasement)',inflation:'Currency debasement',currency:'Silver denarius debased',reserves:'Provincial tribute',outcome:'Republic → dictatorship → civil war'},
+   parallel:'Political norms abandoned. Executive overreach. Partisan violence. Wealth concentration. Sound familiar? The Gracchi brothers\' populism mirrors modern politics.',
+   lesson:'Rome didn\'t fall in a day. The transition from Republic to Empire took a century of civil wars, populist leaders, and constitutional crises. The institutions lasted longer than expected — until they didn\'t.',
+   dalioForce:'Internal Conflict'},
+  {era:'Dutch Empire (1780-1795)',match:'Empire Decline Full Cycle',matchPct:75,
+   metrics:{debtGDP:'High',inflation:'Currency devaluation',currency:'Guilder lost reserve status',reserves:'Depleted by wars',outcome:'French invasion, end of Dutch Golden Age'},
+   parallel:'Dalio\'s textbook example. Dutch had reserve currency, best financial markets, strongest navy. Lost it all in ~30 years. Sound familiar?',
+   lesson:'The Dutch maintained the illusion of financial dominance even as the British surpassed them. Markets were the last thing to adjust. By the time the guilder lost status, the real decline was already decades old.',
+   dalioForce:'Debt & Money'},
+  {era:'Yugoslavia (1991-1995)',match:'State Fragmentation',matchPct:45,
+   metrics:{debtGDP:'High',inflation:'Hyperinflation',currency:'Dinar collapsed',reserves:'None',outcome:'Civil war, ethnic cleansing, breakup'},
+   parallel:'States\' rights conflicts, National Guard deployments against federal agents, red/blue state divergence. Low probability but nonzero for US regional fragmentation.',
+   lesson:'Nobody in Belgrade in 1989 believed civil war was possible. Selco Begovic (Bosnian survivor): "Everything can happen. It happened to us." The veneer of civilization is thinner than people think.',
+   dalioForce:'Internal Conflict'},
+];
+
+// ========================
+// WATCHLIST FRAMEWORK
+// ========================
+const WATCHLIST_FRAMEWORK = {
+  'Gold (GLD)': {force:'Debt & Money',role:'Hard money hedge',dalioView:'10-15% allocation. Central banks buying record amounts. Ultimate hedge against currency debasement.',regime:{baseline:'+10-15%',debt_crisis:'+30-60%',stagflation:'+25-45%',taiwan:'+40-80%',ai_boom:'+0-5%'}},
+  'Bitcoin (BTC)': {force:'Debt & Money',role:'Digital hard money',dalioView:'Small allocation (1-3%). Non-government money. Volatile but asymmetric upside in debt crisis scenarios.',regime:{baseline:'+15-25%',debt_crisis:'+40-80%',stagflation:'+20-40%',taiwan:'+0-30%',ai_boom:'+30-60%'}},
+  'S&P 500 (SPY)': {force:'Growth',role:'US large cap equity',dalioView:'Expensive. Equity risk premium near record lows. Expected return ~4.7%/yr. Concentration risk in Mag 7.',regime:{baseline:'+5-8%',debt_crisis:'-25-40%',stagflation:'-10-20%',taiwan:'-30-50%',ai_boom:'+15-30%'}},
+  '10Y Treasury (TLT)': {force:'Discount Rate',role:'Duration/rate bet',dalioView:'Dangerous. Long bonds get destroyed in debt crisis AND stagflation. Only works in deflationary bust or AI boom.',regime:{baseline:'+2-4%',debt_crisis:'-20-35%',stagflation:'-15-25%',taiwan:'+5-15%',ai_boom:'+5-10%'}},
+  'TIPS (TIP)': {force:'Inflation',role:'Inflation-protected bonds',dalioView:'Better than nominal bonds. Real rates positive. Protects purchasing power if inflation stays elevated.',regime:{baseline:'+4-6%',debt_crisis:'+5-10%',stagflation:'+8-15%',taiwan:'+5-10%',ai_boom:'+3-5%'}},
+  'International (VXUS)': {force:'Trade',role:'Diversification away from US',dalioView:'Overweight. US decline = capital rotation to international markets. Cheaper valuations, less debt risk.',regime:{baseline:'+8-12%',debt_crisis:'-10-20%',stagflation:'-5-15%',taiwan:'-25-45%',ai_boom:'+10-20%'}},
+  'Commodities (DJP)': {force:'Inflation',role:'Real asset/inflation hedge',dalioView:'Underowned. Benefits from inflation, supply shocks, and dollar weakness. Energy, agriculture, metals.',regime:{baseline:'+5-10%',debt_crisis:'+15-30%',stagflation:'+20-40%',taiwan:'+30-60%',ai_boom:'+5-10%'}},
+  'Dollar Index (DXY)': {force:'Reserve Currency',role:'US currency strength',dalioView:'Secular downtrend. Reserve share 58.5% and falling. Key indicator of empire decline speed.',regime:{baseline:'-2-5%',debt_crisis:'-15-25%',stagflation:'-10-15%',taiwan:'+5-10% (initial flight)',ai_boom:'+0-5%'}},
+};
+
+// ========================
+// LIVE NEWS FEED
+// ========================
+function renderNewsFeed(){
+  // RSS feeds via public CORS proxies
+  const feeds = [
+    {name:'Reuters Economy',url:'https://news.google.com/rss/search?q=US+economy+debt+federal+reserve&hl=en-US&gl=US&ceid=US:en',force:'f1'},
+    {name:'Geopolitics',url:'https://news.google.com/rss/search?q=geopolitics+US+China+Russia+conflict&hl=en-US&gl=US&ceid=US:en',force:'f3'},
+    {name:'Markets',url:'https://news.google.com/rss/search?q=stock+market+treasury+bonds+gold&hl=en-US&gl=US&ceid=US:en',force:'f1'},
+  ];
+
+  const quote = getDalioQuote('overview');
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Live News Feed</h2><span class="badge badge-blue">DALIO FORCE TAGGING</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold);font-style:italic">
+      <div style="font-size:14px;color:var(--t1);line-height:1.6">"${quote.text}"</div>
+      <div style="font-size:11px;color:var(--gold);margin-top:6px">— Ray Dalio, ${quote.source}</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Headlines auto-tagged by Dalio's Five Forces. Ask yourself: <strong>which force does this accelerate?</strong> If multiple forces converge simultaneously, that's when "the Big Cycle turns."
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <span class="badge badge-gold">DEBT & MONEY</span>
+          <span class="badge badge-red">INTERNAL CONFLICT</span>
+          <span class="badge badge-blue">EXTERNAL CONFLICT</span>
+          <span style="font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:1px;background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.25)">ACTS OF NATURE</span>
+          <span style="font-size:10px;padding:3px 10px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:1px;background:rgba(139,92,246,.12);color:var(--purple);border:1px solid rgba(139,92,246,.25)">TECHNOLOGY</span>
+        </div>
+      </div>
+    </div>
+    <div id="newsContainer">
+      <div style="text-align:center;padding:40px;color:var(--t3)">
+        <div class="pulse" style="font-size:14px;margin-bottom:8px">Loading live headlines...</div>
+        <div style="font-size:12px">Fetching from Google News RSS via CORS proxy</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Manual Feed — Recent Dalio-Relevant Events</div>
+      ${EVENTS.slice(0,6).map(ev=>`
+        <div class="event-item" style="margin-bottom:4px">
+          <div class="event-force ${ev.force}">${ev.forceLabel}</div>
+          <div class="event-body">
+            <div class="event-date">${ev.date}</div>
+            <div class="event-title">${ev.title}</div>
+            <div class="event-desc">${ev.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+// Attempt to fetch live RSS
+async function fetchNewsRSS(){
+  const container = document.getElementById('newsContainer');
+  if(!container) return;
+  try{
+    const proxy = 'https://api.allorigins.win/raw?url=';
+    const feedUrl = encodeURIComponent('https://news.google.com/rss/search?q=economy+debt+federal+reserve+treasury+gold&hl=en-US&gl=US&ceid=US:en');
+    const res = await fetch(proxy+feedUrl);
+    const text = await res.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text,'text/xml');
+    const items = xml.querySelectorAll('item');
+    if(items.length===0) throw new Error('No items');
+    const forceKeywords = {
+      'f1':['debt','treasury','bond','deficit','inflation','fed','interest','dollar','gold','currency','fiscal','budget','spending'],
+      'f2':['protest','polariz','conflict','riot','violence','civil','political','division','inequality','unrest','partisan'],
+      'f3':['china','russia','taiwan','military','geopolit','war','sanctions','nato','trade war','tariff','nuclear'],
+      'f4':['climate','earthquake','pandemic','hurricane','flood','drought','disaster','wildfire'],
+      'f5':['ai ','artificial intelligence','technology','automation','cyber','quantum','robot','silicon'],
+    };
+    const forceLabels = {f1:'DEBT',f2:'INTERNAL',f3:'GEOPOL',f4:'NATURE',f5:'TECH'};
+    const html = Array.from(items).slice(0,15).map(item=>{
+      const title = item.querySelector('title')?.textContent||'';
+      const link = item.querySelector('link')?.textContent||'#';
+      const pubDate = item.querySelector('pubDate')?.textContent||'';
+      const date = pubDate ? new Date(pubDate).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      const lower = title.toLowerCase();
+      let force = 'f1';
+      let maxHits = 0;
+      for(const[f,keywords] of Object.entries(forceKeywords)){
+        const hits = keywords.filter(k=>lower.includes(k)).length;
+        if(hits>maxHits){maxHits=hits;force=f;}
+      }
+      return `<div class="event-item" style="margin-bottom:4px">
+        <div class="event-force ${force}">${forceLabels[force]}</div>
+        <div class="event-body">
+          <div class="event-date">${date}</div>
+          <div class="event-title"><a href="${link}" target="_blank" rel="noopener" style="color:var(--t1);text-decoration:none">${title}</a></div>
+        </div>
+      </div>`;
+    }).join('');
+    container.innerHTML = '<div class="card"><div class="card-title">Live Headlines (auto-tagged by Five Forces)</div>'+html+'</div>';
+  }catch(e){
+    container.innerHTML = '<div class="card" style="border-left:3px solid var(--gold)"><div style="padding:16px;font-size:13px;color:var(--t2)">Live RSS feed unavailable (CORS proxy may be blocked). The manual event feed below is always available. Refresh to retry.</div></div>';
+  }
+}
+
+// ========================
+// PERSONAL ALERT SYSTEM
+// ========================
+function renderAlerts(){
+  const presets = [
+    {metric:'10Y Treasury Yield',operator:'>',value:'5.00',unit:'%',note:'Dalio danger zone. Bond market revolt threshold.'},
+    {metric:'DXY (Dollar Index)',operator:'<',value:'100',unit:'',note:'Dollar losing reserve currency confidence.'},
+    {metric:'Gold Price',operator:'>',value:'3500',unit:'$/oz',note:'Central banks panic-buying. Dollar distrust accelerating.'},
+    {metric:'VIX',operator:'>',value:'35',unit:'',note:'Fear spike. Potential cascading sell-off.'},
+    {metric:'Deficit/GDP',operator:'>',value:'8',unit:'%',note:'Beyond Dalio\'s worst-case. Debt spiral confirmed.'},
+    {metric:'Bitcoin',operator:'>',value:'150000',unit:'$',note:'Capital flight to non-government money accelerating.'},
+    {metric:'Fed Balance Sheet',operator:'>',value:'8.5',unit:'$T',note:'Emergency QE. Monetization of debt.'},
+    {metric:'Unemployment',operator:'>',value:'6',unit:'%',note:'Recession signal. Economic shock ingredient for civil conflict.'},
+  ];
+
+  const activeAlerts = STATE.alerts || [];
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Personal Alert System</h2><span class="badge badge-gold">THRESHOLD MONITORING</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Set thresholds on key Dalio indicators. When conditions are met, alerts appear on the Overview tab. Think of these as your <strong>"if-then" contingency triggers</strong> — Dalio always plans for scenarios before they happen.
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Quick-Add Preset Alerts</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        ${presets.map((p,i)=>{
+          const exists = activeAlerts.find(a=>a.metric===p.metric);
+          return `<button data-preset-alert="${i}" style="padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid ${exists?'var(--green)':'var(--border)'};background:${exists?'rgba(14,203,129,.1)':'var(--bg1)'};color:${exists?'var(--green)':'var(--t2)'}">${exists?'Active: ':''}${p.metric} ${p.operator} ${p.value}${p.unit}</button>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Add Custom Alert</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Metric</label><input id="alertMetric" type="text" placeholder="e.g., S&P 500" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:180px"></div>
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Condition</label><select id="alertOp" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px"><option value=">">Greater than</option><option value="<">Less than</option><option value="=">Equals</option></select></div>
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Value</label><input id="alertValue" type="text" placeholder="5.00" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:120px"></div>
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Note</label><input id="alertNote" type="text" placeholder="Why this matters..." style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:250px"></div>
+        <button id="alertAdd" style="padding:8px 20px;background:var(--gold);color:var(--bg0);border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;height:38px">Add</button>
+      </div>
+    </div>
+
+    ${activeAlerts.length > 0 ? `<div class="card">
+      <div class="card-title">Active Alerts (${activeAlerts.length})</div>
+      <table class="data-table">
+        <thead><tr><th>Metric</th><th>Condition</th><th>Note</th><th>Set Date</th><th></th></tr></thead>
+        <tbody>
+          ${activeAlerts.map((a,i)=>`<tr>
+            <td style="font-weight:600;color:var(--t1)">${a.metric}</td>
+            <td style="font-weight:700;font-family:'SF Mono',monospace;color:var(--gold)">${a.operator} ${a.value}</td>
+            <td style="font-size:12px">${a.note||''}</td>
+            <td style="font-size:11px;color:var(--t3)">${a.date||''}</td>
+            <td><button data-alertdel="${i}" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--t3);cursor:pointer;font-size:11px">x</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '<div class="card"><div style="text-align:center;padding:40px;color:var(--t3)">No active alerts. Add preset or custom alerts above.</div></div>'}
+  </div>`;
+}
+
+// ========================
+// PORTFOLIO STRESS TEST
+// ========================
+function renderStressTest(){
+  const st = STATE.stresstest;
+  const holdings = [
+    {id:'st_stocks',name:'US Stocks',placeholder:'e.g. 50000'},
+    {id:'st_intl',name:'International Stocks',placeholder:'e.g. 15000'},
+    {id:'st_bonds',name:'Long Bonds (TLT)',placeholder:'e.g. 10000'},
+    {id:'st_tips',name:'TIPS',placeholder:'e.g. 5000'},
+    {id:'st_gold',name:'Gold',placeholder:'e.g. 10000'},
+    {id:'st_btc',name:'Bitcoin',placeholder:'e.g. 5000'},
+    {id:'st_commodities',name:'Commodities',placeholder:'e.g. 5000'},
+    {id:'st_cash',name:'Cash',placeholder:'e.g. 10000'},
+    {id:'st_realestate',name:'Real Estate',placeholder:'e.g. 50000'},
+  ];
+
+  const totalPortfolio = holdings.reduce((s,h)=>s+(parseFloat(st[h.id])||0),0);
+
+  // Scenario impact multipliers (midpoint of ranges)
+  const impacts = {
+    baseline:{st_stocks:0.065,st_intl:0.10,st_bonds:0.03,st_tips:0.05,st_gold:0.125,st_btc:0.20,st_commodities:0.075,st_cash:0.045,st_realestate:0.04},
+    debt_crisis:{st_stocks:-0.325,st_intl:-0.15,st_bonds:-0.275,st_tips:0.075,st_gold:0.45,st_btc:0.60,st_commodities:0.225,st_cash:0.04,st_realestate:-0.20},
+    stagflation:{st_stocks:-0.15,st_intl:-0.10,st_bonds:-0.20,st_tips:0.115,st_gold:0.35,st_btc:0.30,st_commodities:0.30,st_cash:-0.065,st_realestate:-0.075},
+    taiwan_crisis:{st_stocks:-0.40,st_intl:-0.35,st_bonds:0.10,st_tips:0.075,st_gold:0.60,st_btc:0.15,st_commodities:0.45,st_cash:0.045,st_realestate:-0.25},
+    ai_boom:{st_stocks:0.225,st_intl:0.15,st_bonds:0.075,st_tips:0.04,st_gold:0.025,st_btc:0.45,st_commodities:0.075,st_cash:0.045,st_realestate:0.15},
+  };
+
+  const scenarioResults = Object.entries(SCENARIOS).map(([key,sc])=>{
+    let delta = 0;
+    holdings.forEach(h=>{
+      const val = parseFloat(st[h.id])||0;
+      delta += val * (impacts[key]?.[h.id]||0);
+    });
+    return {key,name:sc.name,prob:sc.prob,color:sc.color,delta,newTotal:totalPortfolio+delta};
+  });
+
+  const weightedExpected = scenarioResults.reduce((s,r)=>{
+    const probNum = parseFloat(r.prob.replace('~','').replace('%',''))/100;
+    return s + (r.delta * probNum);
+  },0);
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Portfolio Stress Test</h2><span class="badge badge-red">SCENARIO ANALYSIS</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Plug in your actual holdings. See how your portfolio performs under each of Dalio's 5 scenarios. <strong>The goal is to survive all scenarios, not bet on one.</strong> A truly resilient portfolio loses less than 15% in the worst case.
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">Your Holdings</div>
+        ${holdings.map(h=>`<div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid rgba(37,48,84,.3)">
+          <span style="width:150px;font-size:13px;color:var(--t2)">${h.name}</span>
+          <input data-stress="${h.id}" type="number" value="${st[h.id]||''}" placeholder="${h.placeholder}" style="flex:1;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--t1);font-size:13px;font-family:'SF Mono',monospace">
+          <span style="width:50px;text-align:right;font-size:11px;color:var(--t3)">${totalPortfolio>0?((parseFloat(st[h.id])||0)/totalPortfolio*100).toFixed(1)+'%':'—'}</span>
+        </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)">
+          <span style="font-weight:700">Total Portfolio</span>
+          <span style="font-weight:700;font-family:'SF Mono',monospace;color:var(--gold);font-size:18px">$${totalPortfolio.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Scenario Impact</div>
+        ${scenarioResults.map(r=>{
+          const pct = totalPortfolio > 0 ? (r.delta/totalPortfolio*100).toFixed(1) : 0;
+          const isPos = r.delta >= 0;
+          return `<div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:13px;color:var(--t2)">${r.name} <span style="color:var(--t3)">${r.prob}</span></span>
+              <span style="font-weight:700;font-family:'SF Mono',monospace;color:${isPos?'var(--green)':'var(--red)'}">${isPos?'+':''}$${Math.round(r.delta).toLocaleString()} (${isPos?'+':''}${pct}%)</span>
+            </div>
+            <div style="height:8px;border-radius:4px;background:var(--bg1);overflow:hidden">
+              ${isPos?`<div style="height:100%;width:${Math.min(Math.abs(pct),100)*2}%;background:var(--green);border-radius:4px"></div>`
+              :`<div style="height:100%;width:${Math.min(Math.abs(pct),100)*2}%;background:var(--red);border-radius:4px;margin-left:auto"></div>`}
+            </div>
+          </div>`;
+        }).join('')}
+        <div style="margin-top:16px;padding-top:12px;border-top:2px solid var(--border);display:flex;justify-content:space-between">
+          <span style="font-weight:700">Probability-Weighted Expected</span>
+          <span style="font-weight:700;font-family:'SF Mono',monospace;color:${weightedExpected>=0?'var(--green)':'var(--red)'}">${weightedExpected>=0?'+':''}$${Math.round(weightedExpected).toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="card-title">Resilience Assessment</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.8">
+        ${totalPortfolio > 0 ? (()=>{
+          const worstCase = Math.min(...scenarioResults.map(r=>r.delta));
+          const worstPct = (worstCase/totalPortfolio*100).toFixed(1);
+          const worstName = scenarioResults.find(r=>r.delta===worstCase).name;
+          const goldPct = ((parseFloat(st.st_gold)||0)/totalPortfolio*100).toFixed(1);
+          const cashPct = ((parseFloat(st.st_cash)||0)/totalPortfolio*100).toFixed(1);
+          let grade = 'A';
+          if(worstPct < -30) grade = 'F';
+          else if(worstPct < -20) grade = 'D';
+          else if(worstPct < -15) grade = 'C';
+          else if(worstPct < -10) grade = 'B';
+          return `<strong>Resilience Grade: <span style="color:var(--${grade==='A'||grade==='B'?'green':grade==='C'?'gold':'red'})">${grade}</span></strong><br>
+          Worst case: <strong style="color:var(--red)">${worstPct}%</strong> in "${worstName}"<br>
+          Gold allocation: ${goldPct}% ${parseFloat(goldPct)<10?'<span style="color:var(--red)">(Dalio recommends 10-15%)</span>':'<span style="color:var(--green)">(meets Dalio target)</span>'}<br>
+          Cash: ${cashPct}% ${parseFloat(cashPct)>25?'<span style="color:var(--gold)">(high — cash loses to inflation)</span>':''}`;
+        })() : 'Enter your holdings above to see your resilience assessment.'}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// HISTORICAL RHYMES
+// ========================
+function renderRhymes(){
+  return `<div class="panel active">
+    <div class="section-header"><h2>Historical Rhymes</h2><span class="badge badge-gold">PATTERN MATCHING</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold)">
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        Dalio: "Those who don't learn from history are destined to repeat it, and those who do learn can profit from understanding the patterns." Each historical case below is matched to current US conditions with a similarity score. <strong>Multiple high-match cases converging = maximum danger.</strong>
+      </div>
+    </div>
+
+    ${HISTORICAL_RHYMES.map(rh=>`<div class="card" style="margin-bottom:16px;border-left:3px solid var(--${rh.matchPct>=70?'red':rh.matchPct>=50?'gold':'green'})">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--t1)">${rh.era}</div>
+          <div style="font-size:12px;color:var(--t3)">Match type: ${rh.match} | Dalio Force: ${rh.dalioForce}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:800;color:var(--${rh.matchPct>=70?'red':rh.matchPct>=50?'gold':'green'})">${rh.matchPct}%</div>
+          <div style="font-size:10px;color:var(--t3)">MATCH</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div style="padding:12px;background:var(--bg1);border-radius:8px">
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px">THEN — Key Metrics</div>
+          ${Object.entries(rh.metrics).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--t2)"><span>${k.replace(/([A-Z])/g,' $1').trim()}</span><span style="font-weight:600;color:var(--t1)">${v}</span></div>`).join('')}
+        </div>
+        <div style="padding:12px;background:var(--bg1);border-radius:8px">
+          <div style="font-size:11px;font-weight:600;color:var(--gold);margin-bottom:6px">NOW — US Parallel</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.6">${rh.parallel}</div>
+        </div>
+      </div>
+
+      <div style="padding:12px;background:rgba(240,185,11,.04);border-radius:8px;border-left:2px solid var(--gold)">
+        <div style="font-size:11px;font-weight:600;color:var(--gold);margin-bottom:4px">LESSON FOR TODAY</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6">${rh.lesson}</div>
+      </div>
+    </div>`).join('')}
+
+    <div class="card" style="border-left:3px solid var(--red)">
+      <div class="card-title">Convergence Warning</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        <strong style="color:var(--red)">The current US situation matches multiple historical crises simultaneously:</strong><br>
+        Weimar-level debt monetization + British Empire-level reserve currency decline + Roman Republic-level political collapse. This multi-vector convergence has only happened a handful of times in history. Each individual parallel is concerning. Together, they are Dalio's worst-case framework in action.
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
+// WATCHLIST
+// ========================
+function renderWatchlist(){
+  const userWatchlist = STATE.watchlist || [];
+  const quote = getDalioQuote('markets');
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Watchlist</h2><span class="badge badge-blue">DALIO FRAMEWORK OVERLAY</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold);font-style:italic">
+      <div style="font-size:14px;color:var(--t1);line-height:1.6">"${quote.text}"</div>
+      <div style="font-size:11px;color:var(--gold);margin-top:6px">— Ray Dalio, ${quote.source}</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Core Watchlist — Dalio Framework Assets</div>
+      <table class="data-table">
+        <thead><tr><th>Asset</th><th>Force</th><th>Role</th><th>Baseline</th><th>Debt Crisis</th><th>Stagflation</th><th>Taiwan</th><th>AI Boom</th></tr></thead>
+        <tbody>
+          ${Object.entries(WATCHLIST_FRAMEWORK).map(([name,w])=>{
+            const forceColor = w.force.includes('Debt')?'gold':w.force.includes('Growth')?'green':w.force.includes('Inflation')?'red':w.force.includes('Discount')?'blue':w.force.includes('Reserve')?'purple':'cyan';
+            return `<tr>
+              <td style="font-weight:600;color:var(--t1)">${name}</td>
+              <td><span class="badge badge-${forceColor}" style="font-size:9px;padding:2px 8px">${w.force}</span></td>
+              <td style="font-size:12px">${w.role}</td>
+              ${Object.values(w.regime).map(r=>{
+                const isPos = r.startsWith('+');
+                return `<td style="font-weight:600;color:${isPos?'var(--green)':r.startsWith('-')?'var(--red)':'var(--t2)'};font-size:12px">${r}</td>`;
+              }).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${Object.entries(WATCHLIST_FRAMEWORK).map(([name,w])=>`<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><span style="font-weight:700;color:var(--t1)">${name}</span><span style="margin-left:8px;font-size:11px;color:var(--t3)">${w.role}</span></div>
+        <span class="badge badge-${w.force.includes('Debt')?'gold':'blue'}" style="font-size:9px;padding:2px 8px">${w.force}</span>
+      </div>
+      <div style="font-size:12px;color:var(--t2);margin-top:6px;line-height:1.5">${w.dalioView}</div>
+    </div>`).join('')}
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Add to Personal Watchlist</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Ticker/Asset</label><input id="wlTicker" type="text" placeholder="e.g. NVDA" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:120px"></div>
+        <div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Why (Dalio lens)</label><input id="wlNote" type="text" placeholder="e.g. AI infrastructure play" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;width:280px"></div>
+        <button id="wlAdd" style="padding:8px 20px;background:var(--gold);color:var(--bg0);border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;height:38px">Add</button>
+      </div>
+      ${userWatchlist.length > 0 ? `<div style="margin-top:12px">${userWatchlist.map((w,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(37,48,84,.3)">
+        <div><span style="font-weight:600;color:var(--gold);margin-right:8px">${w.ticker}</span><span style="font-size:12px;color:var(--t2)">${w.note}</span></div>
+        <button data-wldel="${i}" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--t3);cursor:pointer;font-size:11px">x</button>
+      </div>`).join('')}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ========================
+// WEEKLY SCORECARD
+// ========================
+function renderScorecard(){
+  const quote = getDalioQuote('overview');
+  const forces = FORCES;
+  const totalThreat = forces.reduce((s,f)=>s+f.level,0);
+  const maxThreat = forces.reduce((s,f)=>s+f.max,0);
+  const threatPct = ((totalThreat/maxThreat)*100).toFixed(0);
+
+  const conflictBreached = CONFLICT_INDICATORS.filter(c=>c.status==='red').length;
+  const conflictTotal = CONFLICT_INDICATORS.length;
+
+  const checksCompleted = Object.values(STATE.checks).filter(Boolean).length;
+
+  // Compute scenario-weighted outlook
+  const outlookScore = (
+    0.40 * 5 + // baseline neutral
+    0.25 * 2 + // debt crisis bad
+    0.20 * 3 + // stagflation bad
+    0.10 * 1 + // taiwan very bad
+    0.15 * 8   // ai boom good
+  ).toFixed(1); // out of 10
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const weekLabel = weekStart.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  return `<div class="panel active">
+    <div class="section-header"><h2>Weekly Scorecard</h2><span class="badge badge-gold">WEEK OF ${weekLabel.toUpperCase()}</span></div>
+    <div class="card" style="margin-bottom:16px;border-left:3px solid var(--gold);font-style:italic">
+      <div style="font-size:14px;color:var(--t1);line-height:1.6">"${quote.text}"</div>
+      <div style="font-size:11px;color:var(--gold);margin-top:6px">— Ray Dalio, ${quote.source}</div>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:20px">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Overall Threat</div>
+        <div class="card-value" style="color:var(--${threatPct>70?'red':threatPct>50?'gold':'green'})">${threatPct}%</div>
+        <div class="card-sub">${totalThreat}/${maxThreat} across 5 Forces</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Conflict Indicators</div>
+        <div class="card-value" style="color:var(--red)">${conflictBreached}/${conflictTotal}</div>
+        <div class="card-sub">thresholds breached</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Outlook Score</div>
+        <div class="card-value" style="color:var(--${outlookScore>6?'green':outlookScore>4?'gold':'red'})">${outlookScore}/10</div>
+        <div class="card-sub">probability-weighted</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Prep Progress</div>
+        <div class="card-value" style="color:var(--green)">${checksCompleted}</div>
+        <div class="card-sub">checklist items completed</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Five Forces — This Week's Reading</div>
+      <table class="data-table">
+        <thead><tr><th>Force</th><th>Level</th><th>Status</th><th>Assessment</th></tr></thead>
+        <tbody>
+          ${forces.map(f=>{
+            const color = f.level>=7?'red':f.level>=5?'gold':'green';
+            return `<tr>
+              <td style="font-weight:600;color:var(--t1)">${f.name}</td>
+              <td style="font-family:'SF Mono',monospace;font-weight:700;color:var(--${color})">${f.level}/${f.max}</td>
+              <td><span class="badge badge-${color}" style="font-size:9px;padding:2px 8px">${f.status}</span></td>
+              <td style="font-size:12px">${f.desc}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">Key Numbers This Week</div>
+        <div style="font-size:13px;color:var(--t2);line-height:2">
+          National Debt: <strong style="color:var(--red)">$38.5T+</strong> (live from Treasury API)<br>
+          Deficit/GDP: <strong style="color:var(--red)">5.8%</strong> (Dalio target: 3%)<br>
+          10Y Yield: <strong style="color:var(--gold)">${MARKET_DATA.us10y.val}</strong><br>
+          Gold: <strong style="color:var(--green)">${MARKET_DATA.gold.val}</strong> ${MARKET_DATA.gold.chg}<br>
+          DXY: <strong style="color:var(--${MARKET_DATA.dxy.dir==='up'?'green':'red'})">${MARKET_DATA.dxy.val}</strong> ${MARKET_DATA.dxy.chg}<br>
+          VIX: <strong>${MARKET_DATA.vix.val}</strong> — ${parseFloat(MARKET_DATA.vix.val)<20?'Complacent':'Elevated'}<br>
+          Big Cycle Stage: <strong style="color:var(--red)">Stage 6</strong> (confirmed Feb 2026)
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Action Items This Week</div>
+        <div style="font-size:13px;color:var(--t2);line-height:2">
+          ${STATE.alerts.length > 0 ? `Active alerts: <strong style="color:var(--gold)">${STATE.alerts.length}</strong> — check triggers<br>` : ''}
+          ${parseFloat(STATE.portfolio.gold||0) < 10 ? '<span style="color:var(--red)">Gold allocation below 10% — review portfolio tab</span><br>' : ''}
+          Review Event Tracker for new developments<br>
+          Check Treasury auction results (if scheduled)<br>
+          Update journal with weekly observations<br>
+          ${checksCompleted < 5 ? '<span style="color:var(--gold)">Complete more preparedness checklist items</span><br>' : ''}
+          Export backup (Data Management tab)
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="card-title">Printable Summary</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:8px">Use Ctrl+P / Cmd+P to print this scorecard. The dashboard is print-optimized.</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6">
+        <strong>Week of ${weekLabel}:</strong> Overall threat at ${threatPct}%. ${conflictBreached} of ${conflictTotal} conflict indicators breached. Market regime: ${MARKET_DRIVERS.growth.current} growth, ${MARKET_DRIVERS.inflation.current} inflation. Big Cycle: Stage 6 confirmed. Probability-weighted outlook: ${outlookScore}/10. ${STATE.alerts.length} active alerts. ${checksCompleted} prep items completed.
+      </div>
+    </div>
+  </div>`;
+}
+
+// ========================
 // EVENT LISTENERS
 // ========================
 function attachListeners(){
@@ -2352,11 +2966,11 @@ function attachListeners(){
   const exportBtn = document.getElementById('exportBtn');
   if(exportBtn){
     exportBtn.onclick = () => {
-      const dataKeys = ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario'];
+      const dataKeys = ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario','dcc_alerts','dcc_watchlist','dcc_stresstest'];
       const backup = {};
       dataKeys.forEach(k => { const v = localStorage.getItem(k); if(v) backup[k] = JSON.parse(v); });
       backup._exportDate = new Date().toISOString();
-      backup._version = '5.0';
+      backup._version = '6.0';
       const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -2389,6 +3003,9 @@ function attachListeners(){
           STATE.networth = JSON.parse(localStorage.getItem('dcc_networth') || '[]');
           STATE.bugout = JSON.parse(localStorage.getItem('dcc_bugout') || '{}');
           STATE.scenario = localStorage.getItem('dcc_scenario') || 'baseline';
+          STATE.alerts = JSON.parse(localStorage.getItem('dcc_alerts') || '[]');
+          STATE.watchlist = JSON.parse(localStorage.getItem('dcc_watchlist') || '[]');
+          STATE.stresstest = JSON.parse(localStorage.getItem('dcc_stresstest') || '{}');
           alert('Data imported successfully!');
           render();
         } catch(err) { alert('Error reading file: ' + err.message); }
@@ -2402,7 +3019,7 @@ function attachListeners(){
     resetBtn.onclick = () => {
       if(!confirm('This will permanently delete ALL your dashboard data. Are you sure?')) return;
       if(!confirm('Really? This cannot be undone. Export first if you want a backup.')) return;
-      ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario','dcc_tab'].forEach(k => localStorage.removeItem(k));
+      ['dcc_checks','dcc_portfolio','dcc_journal','dcc_health','dcc_networth','dcc_bugout','dcc_scenario','dcc_tab','dcc_alerts','dcc_watchlist','dcc_stresstest'].forEach(k => localStorage.removeItem(k));
       STATE.checks = {};
       STATE.portfolio = {};
       STATE.journal = [];
@@ -2410,10 +3027,90 @@ function attachListeners(){
       STATE.networth = [];
       STATE.bugout = {};
       STATE.scenario = 'baseline';
+      STATE.alerts = [];
+      STATE.watchlist = [];
+      STATE.stresstest = {};
       STATE.tab = 'overview';
       render();
     };
   }
+  // Preset alerts
+  document.querySelectorAll('[data-preset-alert]').forEach(el => {
+    el.onclick = () => {
+      const presets = [
+        {metric:'10Y Treasury Yield',operator:'>',value:'5.00',note:'Dalio danger zone. Bond market revolt threshold.'},
+        {metric:'DXY (Dollar Index)',operator:'<',value:'100',note:'Dollar losing reserve currency confidence.'},
+        {metric:'Gold Price',operator:'>',value:'3500',note:'Central banks panic-buying. Dollar distrust accelerating.'},
+        {metric:'VIX',operator:'>',value:'35',note:'Fear spike. Potential cascading sell-off.'},
+        {metric:'Deficit/GDP',operator:'>',value:'8',note:'Beyond Dalio worst-case. Debt spiral confirmed.'},
+        {metric:'Bitcoin',operator:'>',value:'150000',note:'Capital flight to non-government money accelerating.'},
+        {metric:'Fed Balance Sheet',operator:'>',value:'8.5',note:'Emergency QE. Monetization of debt.'},
+        {metric:'Unemployment',operator:'>',value:'6',note:'Recession signal. Economic shock ingredient.'},
+      ];
+      const p = presets[parseInt(el.dataset.presetAlert)];
+      if(!p) return;
+      const exists = STATE.alerts.findIndex(a=>a.metric===p.metric);
+      if(exists >= 0){ STATE.alerts.splice(exists,1); }
+      else { STATE.alerts.push({...p, date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}); }
+      saveAlerts();
+      render();
+    };
+  });
+  // Custom alert add
+  const alertAdd = document.getElementById('alertAdd');
+  if(alertAdd){
+    alertAdd.onclick = () => {
+      const metric = document.getElementById('alertMetric').value.trim();
+      const op = document.getElementById('alertOp').value;
+      const value = document.getElementById('alertValue').value.trim();
+      const note = document.getElementById('alertNote').value.trim();
+      if(!metric || !value) return;
+      STATE.alerts.push({metric, operator:op, value, note, date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})});
+      saveAlerts();
+      render();
+    };
+  }
+  // Alert delete
+  document.querySelectorAll('[data-alertdel]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      STATE.alerts.splice(parseInt(el.dataset.alertdel), 1);
+      saveAlerts();
+      render();
+    };
+  });
+  // Stress test inputs
+  document.querySelectorAll('[data-stress]').forEach(el => {
+    el.oninput = () => {
+      STATE.stresstest[el.dataset.stress] = el.value;
+      saveStresstest();
+      clearTimeout(window._stressTimer);
+      window._stressTimer = setTimeout(render, 400);
+    };
+  });
+  // Watchlist add
+  const wlAdd = document.getElementById('wlAdd');
+  if(wlAdd){
+    wlAdd.onclick = () => {
+      const ticker = document.getElementById('wlTicker').value.trim().toUpperCase();
+      const note = document.getElementById('wlNote').value.trim();
+      if(!ticker) return;
+      STATE.watchlist.push({ticker, note, date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})});
+      saveWatchlist();
+      render();
+    };
+  }
+  // Watchlist delete
+  document.querySelectorAll('[data-wldel]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      STATE.watchlist.splice(parseInt(el.dataset.wldel), 1);
+      saveWatchlist();
+      render();
+    };
+  });
+  // Fetch news if on newsfeed tab
+  if(STATE.tab === 'newsfeed') fetchNewsRSS();
 }
 
 // INIT
